@@ -10,6 +10,7 @@ import {
 import type { Route } from "./+types/root";
 import "./app.css";
 import { useEffect, useState } from "react";
+import { WsProvider } from "./context";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -49,12 +50,7 @@ export default function App() {
     const newSocket = new WebSocket("ws://localhost:3000");
 
     newSocket.onopen = () => {
-      console.log("Connection established");
-      newSocket.send("Hello server");
-    };
-
-    newSocket.onmessage = (message) => {
-      console.log("Message received", message.data);
+      console.log("Connected to ws");
     };
 
     setSocket(newSocket);
@@ -62,7 +58,11 @@ export default function App() {
     return () => newSocket.close();
   }, []);
 
-  return <Outlet />;
+  return (
+    <WsProvider ws={socket}>
+      <Outlet />
+    </WsProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
