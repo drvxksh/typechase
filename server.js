@@ -2,7 +2,7 @@ import compression from "compression";
 import express from "express";
 import { createServer } from "http";
 import morgan from "morgan";
-import { WebSocketServer } from "ws";
+import WebSocket, { WebSocketServer } from "ws";
 
 // Short-circuit the type-checking of the built output.
 const BUILD_PATH = "./build/server/index.js";
@@ -14,8 +14,18 @@ const app = express();
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer });
 
+let userCount = 0;
 wss.on("connection", (ws) => {
-  ws.send("Hello from the server");
+  ws.on("error", console.error);
+
+  ws.on("message", (data, isBinary) => {
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN)
+        client.send(data, { binary: isBinary });
+    });
+  });
+  console.log("user connected", ++userCount);
+  ws.send("Hello from the server!");
 });
 
 app.use(compression());

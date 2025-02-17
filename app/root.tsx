@@ -9,6 +9,7 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { useEffect, useState } from "react";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -42,6 +43,25 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+
+  useEffect(() => {
+    const newSocket = new WebSocket("ws://localhost:3000");
+
+    newSocket.onopen = () => {
+      console.log("Connection established");
+      newSocket.send("Hello server");
+    };
+
+    newSocket.onmessage = (message) => {
+      console.log("Message received", message.data);
+    };
+
+    setSocket(newSocket);
+
+    return () => newSocket.close();
+  }, []);
+
   return <Outlet />;
 }
 
