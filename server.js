@@ -1,4 +1,5 @@
 import compression from "compression";
+import { randomUUID } from "crypto";
 import express from "express";
 import { createServer } from "http";
 import morgan from "morgan";
@@ -14,18 +15,88 @@ const app = express();
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer });
 
-let userCount = 0;
+let rooms = {};
+let users = {};
+const maxClients = 5;
+
 wss.on("connection", (ws) => {
   ws.on("error", console.error);
 
-  ws.on("message", (data, isBinary) => {
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN)
-        client.send(data, { binary: isBinary });
-    });
+  if (!ws["userId"]) {
+    ws["userId"] = randomUUID();
+    ws.send(JSON.stringify({ userId: ws["userId"] }));
+  }
+
+  ws.on("message", (data) => {
+    const obj = JSON.parse(data);
+    const query = obj.query;
+    const params = obj.params;
+
+    switch (query) {
+      case "create":
+        create();
+        break;
+      case "join":
+        join(params);
+        break;
+      case "leave":
+        leave();
+        break;
+      default:
+        console.warn(`Query ${query} unknown`);
+        break;
+    }
   });
-  console.log("user connected", ++userCount);
-  ws.send("Hello from the server!");
+
+  function create() {
+    if (ws["roomId"]) {
+      console.warn("Duplicate room creation");
+      ws.send(JSON.stringify({ success: true, roomId }));
+    }
+
+    const roomId = randomUUID();
+
+    rooms[roomId] = [ws];
+    users[ws["userId"]] = roomId;
+
+    ws["roomId"] = roomId;
+
+    ws.send(JSON.stringify({ success: true, roomId }));
+  }
+
+  function join(params) {
+    const roomId = params.roomId;
+    if (!Object.keys(rooms).includes(roomId)) {
+      console.warn(`Room ${roomId} does not exist`);
+      return;
+    }
+
+    if (rooms[roomId].length >= maxClients) {
+      console.warn(`Room ${roomId} is full`);
+      return;
+    }
+
+    rooms[roomId].push(ws);
+    users[ws["userId"]] = roomId;
+
+    ws["roomId"] = roomId;
+
+    ws.send(JSON.stringify({ success: true, size: rooms[roomId].length }));
+  }
+
+  function leave() {
+    const roomId = ws.roomId;
+    rooms[roomId] = rooms[roomId].filter((entry) => entry != ws);
+    delete users[ws.userId];
+    ws.roomId = null;
+    ws.userId = null;
+
+    if (rooms[roomId].length === 0) {
+      rooms = rooms.filter((key) => key != roomId);
+    }
+
+    ws.send(JSON.stringify({ success: true }));
+  }
 });
 
 app.use(compression());
