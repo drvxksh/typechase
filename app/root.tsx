@@ -1,5 +1,4 @@
 import {
-  data,
   isRouteErrorResponse,
   Links,
   Meta,
@@ -10,9 +9,6 @@ import {
 
 import type { Route } from "./+types/root";
 import "./app.css";
-import { useEffect, useState } from "react";
-import { WsProvider } from "./context";
-import { commitSession, getSession } from "./.server/session";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -45,50 +41,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export async function action({ request }: Route.ActionArgs) {
-  const session = await getSession(request.headers.get("cookie"));
-
-  const formData = await request.formData();
-
-  const userId = formData.get("userId");
-
-  if (!userId) return data({ message: "Incomplete request" }, { status: 400 });
-
-  session.set("userId", userId as string);
-
-  return data(
-    {},
-    {
-      headers: {
-        "Set-Cookie": await commitSession(session),
-      },
-    }
-  );
-}
-
 export default function App() {
-  const [socket, setSocket] = useState<WebSocket | null>(null);
-
-  useEffect(() => {
-    const newSocket = new WebSocket("ws://localhost:3000");
-
-    newSocket.onopen = () => console.log("Connected to the websocket");
-
-    setSocket(newSocket);
-
-    newSocket.onmessage = (event) => {
-      if (event.data.userId) {
-      }
-    };
-
-    return () => newSocket.close();
-  }, []);
-
-  return (
-    <WsProvider ws={socket}>
-      <Outlet />
-    </WsProvider>
-  );
+  return <Outlet />;
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
