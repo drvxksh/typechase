@@ -7,8 +7,9 @@ import {
   ScrollRestoration,
 } from "react-router";
 
-import type { Route } from "./+types/root";
 import "./app.css";
+import { useEffect } from "react";
+import type { Route } from "./+types/root";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -42,6 +43,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    const newSocket = new WebSocket("ws://localhost:3000");
+    newSocket.onopen = () => console.log("Connected the the websocket");
+    newSocket.onerror = (err) => console.error(err);
+  }, []);
   return <Outlet />;
 }
 

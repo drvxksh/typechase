@@ -1,6 +1,9 @@
 import compression from "compression";
 import express from "express";
+import { createServer } from "http";
 import morgan from "morgan";
+import { WebSocketServer } from "ws";
+import eventEmitter from "./server.emitter.js";
 
 // Short-circuit the type-checking of the built output.
 const BUILD_PATH = "./build/server/index.js";
@@ -8,6 +11,23 @@ const DEVELOPMENT = process.env.NODE_ENV === "development";
 const PORT = Number.parseInt(process.env.PORT || "3000");
 
 const app = express();
+
+const httpServer = createServer(app);
+const wss = new WebSocketServer({ server: httpServer });
+
+wss.on("connection", (ws) => {
+  ws.on("error", (err) => console.error(err));
+
+  console.log("Client connected");
+
+  ws.on("message", (data) => {
+    const { event, payload } = JSON.parse(String(data));
+
+    eventEmitter.emit(event, payload, ws);
+  });
+
+  ws.on("close", () => console.log("Client disconnected"));
+});
 
 app.use(compression());
 app.disable("x-powered-by");
@@ -43,6 +63,6 @@ if (DEVELOPMENT) {
 
 app.use(morgan("tiny"));
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });

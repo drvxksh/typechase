@@ -1,6 +1,7 @@
 import "react-router";
 import { createRequestHandler } from "@react-router/express";
 import express from "express";
+import eventEmitter from "../server.emitter.js";
 
 declare module "react-router" {
   interface AppLoadContext {
@@ -9,6 +10,9 @@ declare module "react-router" {
 }
 
 export const app = express();
+
+const rooms = new Map();
+const userSockets = new Map();
 
 app.use(
   createRequestHandler({
