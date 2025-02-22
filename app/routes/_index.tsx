@@ -1,7 +1,20 @@
-import { Form } from "react-router";
+import { Form, Link } from "react-router";
 import backgroundImage from "/assets/dot_background.jpg?url";
+import type { Route } from "./+types/_index";
+import { getSession } from "~/.server/sessions";
 
-export default function RootPage() {
+export async function loader({ request }: Route.LoaderArgs) {
+  const session = await getSession(request.headers.get("cookie"));
+  const roomId = session.get("roomId");
+
+  if (roomId) {
+    return { hasGameRunning: true, roomId };
+  } else return { hasGameRunning: false, roomId: null };
+}
+
+export default function RootPage({ loaderData }: Route.ComponentProps) {
+  const { hasGameRunning, roomId } = loaderData;
+
   return (
     <main className="h-screen flex flex-col items-center justify-center">
       <div className="absolute -z-10 top-0 left-0">
@@ -17,36 +30,40 @@ export default function RootPage() {
             Compete with your friends. Prove your speed
           </h2>
         </header>
-        <div className="flex gap-2 md:gap-5 items-center md:flex-row flex-col">
-          <Form className="border-2 border-zinc-300 p-2 rounded-md">
-            <input
-              type="text"
-              name="inviteLink"
-              placeholder="Enter the invite url"
-              className="focus:outline-none text-zinc-600"
-            />
-            <button
-              type="submit"
-              className="hover:cursor-pointer hover:underline underline-offset-4"
-            >
-              Join
+        {hasGameRunning ? (
+          <Link to={`/${roomId}?status=lobby`}>Return to game</Link>
+        ) : (
+          <div className="flex gap-2 md:gap-5 items-center md:flex-row flex-col">
+            <Form className="border-2 border-zinc-300 p-2 rounded-md">
+              <input
+                type="text"
+                name="inviteLink"
+                placeholder="Enter the invite url"
+                className="focus:outline-none text-zinc-600"
+              />
+              <button
+                type="submit"
+                className="hover:cursor-pointer hover:underline underline-offset-4"
+              >
+                Join
+              </button>
+            </Form>
+            <span className="underline underline-offset-4 italic font-mono">
+              or
+            </span>
+            <button className="px-4 py-2 rounded-md text-lg bg-blue-600 text-white font-semibold flex items-center gap-1 cursor-pointer hover:scale-105 transition-transform duration-200">
+              Create a room{" "}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                style={{ height: "1.5rem", width: "1.5rem" }}
+              >
+                <path d="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z"></path>
+              </svg>
             </button>
-          </Form>
-          <span className="underline underline-offset-4 italic font-mono">
-            or
-          </span>
-          <button className="px-4 py-2 rounded-md text-lg bg-blue-600 text-white font-semibold flex items-center gap-1 cursor-pointer hover:scale-105 transition-transform duration-200">
-            Create a room{" "}
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              style={{ height: "1.5rem", width: "1.5rem" }}
-            >
-              <path d="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z"></path>
-            </svg>
-          </button>
-        </div>
+          </div>
+        )}
       </section>
     </main>
   );
