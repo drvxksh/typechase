@@ -8,8 +8,10 @@ import {
 } from "react-router";
 
 import "./app.css";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Route } from "./+types/root";
+import { WsProvider } from "./wsContext";
+import { Toaster } from "sonner";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -34,6 +36,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
+        <Toaster />
         {children}
         <ScrollRestoration />
         <Scripts />
@@ -43,12 +46,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+
   useEffect(() => {
     const newSocket = new WebSocket("ws://localhost:3000");
+
     newSocket.onopen = () => console.log("Connected the the websocket");
+    setSocket(newSocket);
+
     newSocket.onerror = (err) => console.error(err);
+
+    return () => newSocket.close();
   }, []);
-  return <Outlet />;
+
+  return (
+    <WsProvider ws={socket}>
+      <Outlet />
+    </WsProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
