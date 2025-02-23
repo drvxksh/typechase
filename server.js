@@ -3,7 +3,8 @@ import express from "express";
 import { createServer } from "http";
 import morgan from "morgan";
 import { WebSocketServer } from "ws";
-import eventEmitter from "./server.emitter.js";
+import { randomUUID } from "crypto";
+import EventEmitter from "events";
 
 // Short-circuit the type-checking of the built output.
 const BUILD_PATH = "./build/server/index.js";
@@ -14,6 +15,8 @@ const app = express();
 
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer });
+
+const eventEmitter = new EventEmitter();
 
 wss.on("connection", (ws) => {
   ws.on("error", (err) => console.error(err));
@@ -27,6 +30,25 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("close", () => console.log("Client disconnected"));
+});
+
+//@ts-check
+
+/** @type {import ("./server.d.ts").RoomsType} */
+
+const rooms = {};
+
+eventEmitter.on("createRoom", (payload, ws) => {
+  const newRoomId = randomUUID();
+
+  rooms[newRoomId] = {
+    status: "lobby",
+    admin: ws,
+    joinedClients: [ws],
+    createdAt: new Date(),
+  };
+
+  ws.send(JSON.stringify({ event: "roomCreated", roomId: newRoomId }));
 });
 
 app.use(compression());

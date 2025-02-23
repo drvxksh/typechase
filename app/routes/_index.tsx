@@ -1,19 +1,82 @@
-import { Form, Link } from "react-router";
+import { Form, useNavigate } from "react-router";
 import backgroundImage from "/assets/dot_background.jpg?url";
-import type { Route } from "./+types/_index";
-import { getSession } from "~/.server/sessions";
+import { useWs } from "~/wsContext";
+import { useEffect } from "react";
+import { toast } from "sonner";
 
-export async function loader({ request }: Route.LoaderArgs) {
-  const session = await getSession(request.headers.get("cookie"));
-  const roomId = session.get("roomId");
+// export async function action({ request, context }: Route.ActionArgs) {
+//   const session = await getSession(request.headers.get("cookie"));
+//   const userId = session.get("userId");
+//   //TODO propogate this userId to the record
+//   if (!userId || context.users[userId] === undefined)
+//     return data({ message: "Unregistered" }, { status: 400 });
 
-  if (roomId) {
-    return { hasGameRunning: true, roomId };
-  } else return { hasGameRunning: false, roomId: null };
-}
+//   const formData = await request.formData();
+//   const query = String(formData.get("query"));
 
-export default function RootPage({ loaderData }: Route.ComponentProps) {
-  const { hasGameRunning, roomId } = loaderData;
+//   switch (query) {
+//     case "joinRoom": {
+//       const roomId = formData.get("roomCode");
+//       if (!roomId)
+//         return data({ message: "Incomplete request" }, { status: 400 });
+//       if (context.rooms[String(roomId)] === undefined)
+//         return data(
+//           { message: "Requested room does not exist" },
+//           { status: 400 }
+//         );
+//       context.rooms[String(roomId)].joinedClients.push(context.users[userId]);
+//       //TODO appropriate return route
+//     }
+//     case "createRoom": {
+//       const newRoomId = randomUUID();
+//       context.rooms[newRoomId] = {
+//         status: "lobby",
+//         admin: context.users[userId],
+//         joinedClients: [context.users[userId]],
+//         createdAt: new Date(),
+//       };
+//       //TODO appropriate return route
+//     }
+//     default: {
+//       console.warn(`Query ${query} not handled`);
+//       break;
+//     }
+//   }
+
+//   const roomId = session.get("roomId");
+
+//   if (roomId) return data({ message: "Bad request" }, { status: 400 });
+
+//   return null;
+// }
+
+export default function RootPage() {
+  const ws = useWs();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      console.log("handleMessage triggered");
+      const { event: eventType, roomId, message } = JSON.parse(event.data);
+
+      if (eventType === "roomCreated") {
+        navigate(`/${roomId}`);
+      } else if (eventType === "error") {
+        console.error(message);
+        toast.error("Something went wrong");
+      }
+    };
+
+    ws?.addEventListener("message", handleMessage);
+
+    return () => ws?.removeEventListener("message", handleMessage);
+  }, [ws, navigate]);
+
+  const handleRoomCreation = () => {
+    if (ws) {
+      ws.send(JSON.stringify({ event: "createRoom" }));
+    }
+  };
 
   return (
     <main className="h-screen flex flex-col items-center justify-center">
@@ -30,40 +93,46 @@ export default function RootPage({ loaderData }: Route.ComponentProps) {
             Compete with your friends. Prove your speed
           </h2>
         </header>
-        {hasGameRunning ? (
-          <Link to={`/${roomId}?status=lobby`}>Return to game</Link>
-        ) : (
-          <div className="flex gap-2 md:gap-5 items-center md:flex-row flex-col">
-            <Form className="border-2 border-zinc-300 p-2 rounded-md">
-              <input
-                type="text"
-                name="inviteLink"
-                placeholder="Enter the invite url"
-                className="focus:outline-none text-zinc-600"
-              />
-              <button
-                type="submit"
-                className="hover:cursor-pointer hover:underline underline-offset-4"
-              >
-                Join
-              </button>
-            </Form>
-            <span className="underline underline-offset-4 italic font-mono">
-              or
-            </span>
-            <button className="px-4 py-2 rounded-md text-lg bg-blue-600 text-white font-semibold flex items-center gap-1 cursor-pointer hover:scale-105 transition-transform duration-200">
-              Create a room{" "}
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                style={{ height: "1.5rem", width: "1.5rem" }}
-              >
-                <path d="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z"></path>
-              </svg>
+        <div className="flex gap-2 md:gap-5 items-center md:flex-row flex-col">
+          <Form
+            className="border-2 border-zinc-300 p-2 rounded-md"
+            method="POST"
+          >
+            <input
+              type="text"
+              name="roomCode"
+              placeholder="Enter the invite code"
+              className="focus:outline-none text-zinc-600"
+            />
+            <button
+              type="submit"
+              name="query"
+              value="joinRoom"
+              className="hover:cursor-pointer hover:underline underline-offset-4"
+            >
+              Join
             </button>
-          </div>
-        )}
+          </Form>
+          <span className="underline underline-offset-4 italic font-mono">
+            or
+          </span>
+          <button
+            name="query"
+            value="createRoom"
+            onClick={handleRoomCreation}
+            className="px-4 py-2 rounded-md text-lg bg-blue-600 text-white font-semibold flex items-center gap-1 cursor-pointer hover:scale-105 transition-transform duration-200"
+          >
+            Create a room{" "}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              style={{ height: "1.5rem", width: "1.5rem" }}
+            >
+              <path d="M11 11V5H13V11H19V13H13V19H11V13H5V11H11Z"></path>
+            </svg>
+          </button>
+        </div>
       </section>
     </main>
   );
