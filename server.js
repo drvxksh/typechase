@@ -5,6 +5,7 @@ import morgan from "morgan";
 import { WebSocketServer } from "ws";
 import { randomUUID } from "crypto";
 import EventEmitter from "events";
+import { uniqueNamesGenerator, animals, colors } from "unique-names-generator";
 
 // Short-circuit the type-checking of the built output.
 const BUILD_PATH = "./build/server/index.js";
@@ -38,9 +39,13 @@ wss.on("connection", (ws) => {
 
 const rooms = {};
 
+/** @type {import ("./server.d.ts").UsernamesType} */
+const userNames = {}; //maps the websocket to the name
+
 eventEmitter.on("createRoom", (payload, ws) => {
   const newRoomId = randomUUID();
 
+  //register the room
   rooms[newRoomId] = {
     status: "lobby",
     admin: ws,
@@ -48,7 +53,19 @@ eventEmitter.on("createRoom", (payload, ws) => {
     createdAt: new Date(),
   };
 
+  //give the admin a name
+  userNames[ws] = uniqueNamesGenerator({ dictionaries: [animals, colors] });
+
   ws.send(JSON.stringify({ event: "roomCreated", roomId: newRoomId }));
+});
+
+eventEmitter.on("getName", (payload, ws) => {
+  if (userNames[ws] === undefined) {
+    userNames[ws] = uniqueNamesGenerator({ dictionaries: [animals, colors] });
+  }
+  ws.send(
+    JSON.stringify({ event: "getNameResponse", userName: userNames[ws] })
+  );
 });
 
 app.use(compression());

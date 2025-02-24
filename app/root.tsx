@@ -10,7 +10,7 @@ import {
 import "./app.css";
 import { useEffect, useState } from "react";
 import type { Route } from "./+types/root";
-import { WsProvider } from "./wsContext";
+import { WsProvider } from "./websockets";
 import { Toaster } from "sonner";
 
 export const links: Route.LinksFunction = () => [

@@ -1,6 +1,6 @@
 import { Form, useNavigate } from "react-router";
 import backgroundImage from "/assets/dot_background.jpg?url";
-import { useWs } from "~/wsContext";
+import { useWs } from "~/websockets";
 import { useEffect } from "react";
 import { toast } from "sonner";
 
@@ -60,7 +60,7 @@ export default function RootPage() {
       const { event: eventType, roomId, message } = JSON.parse(event.data);
 
       if (eventType === "roomCreated") {
-        navigate(`/${roomId}`);
+        navigate(`/game/${roomId}`);
       } else if (eventType === "error") {
         console.error(message);
         toast.error("Something went wrong");

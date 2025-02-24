@@ -6,3 +6,5 @@ type RoomInfoType = {
 };
 
 export type RoomsType = Record<string, RoomInfoType>;
+
+export type UsernamesType = Record<WebSocket, string>;
