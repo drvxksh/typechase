@@ -2,24 +2,31 @@ import WebSocket from "ws";
 import http from "http";
 import {
   MessageType,
+  Player,
   SocketClient,
   WebSocketMessage,
   WsGameMemory,
 } from "../types";
 import { v4 as uuid } from "uuid";
+import { GameController } from "./gameService";
 
 /** A singleton class to handle the WebSocket logic */
-export class WebSocketController {
+export class WebSocketService {
   // the single instance of the class that would be returned
-  private static instance: WebSocketController;
+  private static instance: WebSocketService;
 
   // web socket server object
   private wss?: WebSocket.Server;
+  private gameController: GameController;
+  private userSockets: Map<string, WebSocket> = new Map();
 
   // the constructor is private so that no object of this class can be created
   private constructor(server: http.Server) {
     // setting up the WebSocket Server
     this.wss = new WebSocket.Server({ server });
+
+    // creating the game controller object
+    this.gameController = new GameController(this);
 
     this.wss.on("connection", async (ws: WebSocket) => {
       const socketClient = ws as SocketClient;
@@ -32,7 +39,10 @@ export class WebSocketController {
         this.sendError(socketClient, "Something went wrong");
       });
 
-      ws.on("close", () => console.log("Client disconnected"));
+      ws.on("close", () => {
+        console.log("Client disconnected");
+        this.userSockets.delete(socketClient.userId);
+      });
 
       ws.on("message", (message: string) => {
         try {
@@ -52,11 +62,11 @@ export class WebSocketController {
    * @param server - httpServer that the websocket will bind to
    * @description Returns a single instance of the WebSocketController
    */
-  public static getInstance(server: http.Server): WebSocketController {
-    if (!WebSocketController.instance) {
-      WebSocketController.instance = new WebSocketController(server);
+  public static getInstance(server: http.Server): WebSocketService {
+    if (!WebSocketService.instance) {
+      WebSocketService.instance = new WebSocketService(server);
     }
-    return WebSocketController.instance;
+    return WebSocketService.instance;
   }
 
   private processMessage(
@@ -72,9 +82,32 @@ export class WebSocketController {
       case MessageType.RECONNECT:
         this.handleReconnect(client, payload);
         break;
+      case MessageType.CREATE_GAME:
+        this.handleGameCreation(client, payload);
+        break;
       default:
         this.sendError(client, `Unsupported message type: ${type}`);
     }
+  }
+
+  private async handleGameCreation(
+    client: SocketClient,
+    payload: any
+  ): Promise<void> {
+    const host: Player = {
+      id: client.userId,
+      name: `Player_${client.userId.substring(0, 5)}`,
+    };
+
+    const gameId = await this.gameController.createGameRoom(host);
+
+    this.send(client, {
+      type: MessageType.CREATE_GAME,
+      payload: {
+        gameId,
+        message: "Game created successfully",
+      },
+    });
   }
 
   private handleConnect(client: SocketClient, payload: any): void {
@@ -85,6 +118,7 @@ export class WebSocketController {
     } else {
       const newPlayerId = uuid();
       client.userId = newPlayerId;
+      this.userSockets.set(newPlayerId, client);
 
       this.send(client, {
         type: MessageType.CONNECT,
@@ -104,6 +138,7 @@ export class WebSocketController {
 
     if (existingPlayer) {
       client.userId = playerId;
+      this.userSockets.set(playerId, client);
 
       this.send(client, {
         type: MessageType.RECONNECT,
@@ -131,12 +166,23 @@ export class WebSocketController {
   }
 
   /**
-   * @param client - WebSocket instance that will send the message
+   * @param clientOrUserId - WebSocket instance or userId that will send the message
    * @param message - The message that is to be sent
    * @description Used to send messages via WebSockets
    */
-  public send(client: SocketClient, message: WebSocketMessage): void {
-    if (client.readyState === WebSocket.OPEN) {
+  public send(
+    clientOrUserId: SocketClient | string,
+    message: WebSocketMessage
+  ): void {
+    let client: SocketClient | undefined;
+
+    if (typeof clientOrUserId === "string") {
+      client = this.userSockets.get(clientOrUserId) as SocketClient;
+    } else {
+      client = clientOrUserId;
+    }
+
+    if (client && client.readyState === WebSocket.OPEN) {
       client.send(JSON.stringify(message));
     }
   }
