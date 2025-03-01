@@ -8,18 +8,37 @@ export default function AppRoutes() {
   const [socket, setSocket] = useState<WebSocket | null>(null);
 
   useEffect(() => {
-    const newSocket = new WebSocket("ws://localhost:3000");
+    let attempts = 0;
+    const maxAttempts = 3;
 
-    newSocket.onerror = () => {
-      toast.error("Something went wrong :(");
+    const connectWebSocket = () => {
+      const newSocket = new WebSocket("ws://localhost:3000");
+
+      newSocket.onopen = () => {
+        console.log("Connected to the websocket");
+        setSocket(newSocket);
+      };
+
+      newSocket.onerror = () => {
+        toast.error("Something went wrong");
+
+        if (attempts < maxAttempts) {
+          attempts += 1;
+          const timeout = Math.pow(2, attempts) * 1000;
+          setTimeout(connectWebSocket, timeout);
+        }
+      };
+
+      newSocket.onclose = () => {
+        if (attempts < maxAttempts) {
+          attempts += 1;
+          const timeout = Math.pow(2, attempts) * 1000;
+          setTimeout(connectWebSocket, timeout);
+        }
+      };
     };
 
-    newSocket.onopen = () => {
-      console.log("Connected to the websocket");
-      setSocket(newSocket);
-    };
-
-    return () => newSocket.close();
+    connectWebSocket();
   }, []);
 
   return (
