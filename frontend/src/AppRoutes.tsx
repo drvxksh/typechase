@@ -1,14 +1,37 @@
 import { Route, Routes } from "react-router";
 import LandingPage from "./pages/landing";
+import { toast, Toaster } from "sonner";
+import { useEffect, useState } from "react";
+import { WsProvider } from "./WsContext";
 
 export default function AppRoutes() {
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+
+  useEffect(() => {
+    const newSocket = new WebSocket("ws://localhost:3000");
+
+    newSocket.onerror = () => {
+      toast.error("Something went wrong :(");
+    };
+
+    newSocket.onopen = () => {
+      console.log("Connected to the websocket");
+      setSocket(newSocket);
+    };
+
+    return () => newSocket.close();
+  }, []);
+
   return (
-    <main className="flex h-screen w-screen flex-col">
-      <Navbar />
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-      </Routes>
-    </main>
+    <WsProvider ws={socket}>
+      <main className="flex h-screen w-screen flex-col">
+        <Navbar />
+        <Toaster richColors={true} />
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+        </Routes>
+      </main>
+    </WsProvider>
   );
 }
 
