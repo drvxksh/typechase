@@ -2,7 +2,8 @@ import { Route, Routes } from "react-router";
 import LandingPage from "./pages/landing";
 import { toast, Toaster } from "sonner";
 import { useEffect, useState } from "react";
-import { WsProvider } from "./WsContext";
+import { WsProvider } from "./wsContext";
+import GamePage from "./pages/game";
 
 export default function AppRoutes() {
   const [socket, setSocket] = useState<WebSocket | null>(null);
@@ -71,6 +72,7 @@ export default function AppRoutes() {
         <Toaster richColors={true} />
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/game/:gameId" element={<GamePage />} />
         </Routes>
       </main>
     </WsProvider>
