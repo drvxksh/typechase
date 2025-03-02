@@ -20,6 +20,7 @@ export enum MessageType {
   PLAYER_LEAVE = "player_leave",
   ERROR = "error",
   RECONNECT = "reconnect",
+  REGISTER_USER = "register_user",
 }
 
 export enum SubscriptionType {

@@ -17,6 +17,29 @@ export default function AppRoutes() {
       newSocket.onopen = () => {
         console.log("Connected to the websocket");
         setSocket(newSocket);
+
+        //check if there is already a userId in the localStorage
+        const existingUserId = localStorage.getItem("userId");
+        // send a connect event to get the userId
+        const payload = {
+          type: "connect",
+          payload: existingUserId ? { playerId: existingUserId } : {},
+        };
+
+        newSocket.send(JSON.stringify(payload));
+      };
+
+      newSocket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        const type = data.type;
+
+        if (type === "connect") {
+          const playerId = data.payload.playerId;
+
+          if (playerId) {
+            localStorage.setItem("userId", playerId);
+          }
+        }
       };
 
       newSocket.onerror = () => {

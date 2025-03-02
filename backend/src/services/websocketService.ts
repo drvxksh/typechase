@@ -1,12 +1,6 @@
 import WebSocket from "ws";
 import http from "http";
-import {
-  MessageType,
-  Player,
-  SocketClient,
-  WebSocketMessage,
-  WsGameMemory,
-} from "../types";
+import { MessageType, Player, SocketClient, WebSocketMessage } from "../types";
 import { v4 as uuid } from "uuid";
 import { GameController } from "./gameService";
 
@@ -79,9 +73,6 @@ export class WebSocketService {
       case MessageType.CONNECT:
         this.handleConnect(client, payload);
         break;
-      case MessageType.RECONNECT:
-        this.handleReconnect(client, payload);
-        break;
       case MessageType.CREATE_GAME:
         this.handleGameCreation(client, payload);
         break;
@@ -111,46 +102,33 @@ export class WebSocketService {
   }
 
   private handleConnect(client: SocketClient, payload: any): void {
+    if (!payload) return;
     const { playerId } = payload;
 
     if (playerId) {
-      this.handleReconnect(client, payload);
-    } else {
-      const newPlayerId = uuid();
-      client.userId = newPlayerId;
-      this.userSockets.set(newPlayerId, client);
-
-      this.send(client, {
-        type: MessageType.CONNECT,
-        payload: {
-          playerId: newPlayerId,
-          message: "Connected successfully",
-        },
-      });
-    }
-  }
-
-  private handleReconnect(client: SocketClient, payload: any): void {
-    const { playerId } = payload;
-
-    // TODO check with redis if this player actually exists
-    const existingPlayer = true;
-
-    if (existingPlayer) {
+      // the user might have dropped off from a game
+      // TODO fetch the user object from redis
+      // the user is using multiple tabs, update to the latest one
+      const oldUserId = client.userId;
+      if (oldUserId) {
+        this.userSockets.delete(oldUserId);
+      }
       client.userId = playerId;
       this.userSockets.set(playerId, client);
-
-      this.send(client, {
-        type: MessageType.RECONNECT,
-        payload: {
-          playerId,
-          gameId: "abc", // TODO this should be a valid gameId
-          message: "Reconnected successfully",
-        },
-      });
     } else {
-      this.handleConnect(client, payload);
+      // this is a new user
+      const newPlayerId = uuid();
+      client.userId = playerId;
+      this.userSockets.set(newPlayerId, client);
     }
+
+    this.send(client, {
+      type: MessageType.CONNECT,
+      payload: {
+        playerId,
+        message: "Connected successfully",
+      },
+    });
   }
 
   /**
