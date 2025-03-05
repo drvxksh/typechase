@@ -1,4 +1,5 @@
 import { createClient, RedisClientType } from "redis";
+import { GameStatus, Player } from "../types";
 
 /**
  * Stores game/player info into redis for some persistence.
@@ -24,5 +25,22 @@ export class StorageService {
     }
 
     return StorageService.instance;
+  }
+
+  public async addGame(
+    gameId: string,
+    gameText: string,
+    host: Player
+  ): Promise<void> {
+    const gameData = {
+      id: gameId,
+      hostUserId: host.id,
+      players: JSON.stringify([host]),
+      gameText,
+      createdAt: Date.now(),
+      status: GameStatus.WAITING,
+    };
+
+    await this.redisClient.hSet(gameId, gameData);
   }
 }

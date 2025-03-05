@@ -78,8 +78,24 @@ export class CommunicationService {
     switch (event) {
       case MessageEvent.CONNECT:
         this.handleConnect(client, payload);
+      case MessageEvent.CREATE_GAME:
+        this.handleCreateGame(client, payload);
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
+    }
+  }
+
+  private async handleCreateGame(
+    client: SocketClient,
+    payload: any
+  ): Promise<void> {
+    const userId = client.userId;
+
+    if (userId) {
+      const gameId = await this.gameService.createGameRoom(userId);
+      // TODO add subscribers
+    } else {
+      this.sendError(client, "Bad request");
     }
   }
 
