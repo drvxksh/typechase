@@ -6,6 +6,7 @@ export interface SocketClient extends WebSocket {
 
 export enum MessageEvent {
   ERROR = "error",
+  "CONNECT" = "connect",
 }
 export interface WebSocketMessage {
   event: MessageEvent;

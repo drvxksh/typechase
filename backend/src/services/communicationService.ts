@@ -3,6 +3,7 @@ import { createClient, RedisClientType } from "redis";
 import WebSocket from "ws";
 import { GameService } from "./gameService";
 import { MessageEvent, SocketClient, WebSocketMessage } from "../types";
+import { v4 as uuid } from "uuid";
 
 /**
  * Handles WebSocket and PubSub logic
@@ -68,12 +69,47 @@ export class CommunicationService {
     client: SocketClient,
     message: WebSocketMessage
   ): void {
+    if (!message) {
+      this.sendError(client, "Incomplete message");
+    }
+
     const { event, payload } = message;
 
     switch (event) {
+      case MessageEvent.CONNECT:
+        this.handleConnect(client, payload);
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
     }
+  }
+
+  private handleConnect(client: SocketClient, payload: any): void {
+    if (!payload) {
+      this.sendError(client, "Incomplete payload");
+    }
+
+    const { playerId } = payload;
+
+    if (playerId) {
+      // TODO handle an existing player
+      const existingPlayer = true;
+
+      if (existingPlayer) {
+        client.userId = playerId;
+      }
+    } else {
+      // this is a new user
+      const newPlayerId = uuid();
+      client.userId = newPlayerId;
+    }
+
+    this.send(client, {
+      event: MessageEvent.CONNECT,
+      payload: {
+        playerId: client.userId,
+        message: "Connected successfully",
+      },
+    });
   }
 
   private sendError(client: SocketClient, errorMessage: string): void {
