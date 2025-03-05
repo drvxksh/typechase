@@ -1,19 +1,20 @@
 import express from "express";
 import http from "http";
-import { WebSocketService } from "./services/websocketService";
-import { GameController } from "./services/gameService";
+import { CommunicationService } from "./services/communicationService";
+
+const PORT = 3000;
 
 const app = express();
-const PORT = 3000;
+const server = http.createServer(app);
+
+CommunicationService.initialize(server);
 
 app.use(express.json());
 
-const server = http.createServer(app);
-
-// bind the websocket to the httpServer
-const webSocketInstance = WebSocketService.getInstance(server);
-const gameController = new GameController(webSocketInstance);
+app.get("/", (req, res) => {
+  res.send("The server is online!");
+});
 
 server.listen(PORT, () => {
-  console.log(`The server is running at http://localhost:${PORT}`);
+  console.log(`Server is running at http://localhost:${PORT}`);
 });
