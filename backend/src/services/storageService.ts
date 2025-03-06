@@ -43,4 +43,23 @@ export class StorageService {
 
     await this.redisClient.hSet(gameId, gameData);
   }
+
+  public async checkGameId(gameId: string): Promise<boolean> {
+    const exists = await this.redisClient.exists(gameId);
+    return exists === 1;
+  }
+
+  public async joinGame(gameId: string, newPlayer: Player): Promise<Player[]> {
+    const gameData = await this.redisClient.hGetAll(gameId);
+
+    const players: Player[] = JSON.parse(gameData.players);
+    players.push(newPlayer);
+
+    await this.redisClient.hSet(gameId, {
+      ...gameData,
+      players: JSON.stringify(players),
+    });
+
+    return players;
+  }
 }

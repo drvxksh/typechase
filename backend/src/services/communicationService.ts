@@ -2,7 +2,7 @@ import http from "http";
 import { createClient, RedisClientType } from "redis";
 import WebSocket from "ws";
 import { GameService } from "./gameService";
-import { MessageEvent, SocketClient, WebSocketMessage } from "../types";
+import { MessageEvent, Player, SocketClient, WebSocketMessage } from "../types";
 import { v4 as uuid } from "uuid";
 
 /**
@@ -80,8 +80,61 @@ export class CommunicationService {
         this.handleConnect(client, payload);
       case MessageEvent.CREATE_GAME:
         this.handleCreateGame(client, payload);
+      case MessageEvent.JOIN_ROOM:
+        this.handleJoinRoom(client, payload);
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
+    }
+  }
+
+  private async handleJoinRoom(client: SocketClient, payload: any) {
+    if (!payload) {
+      this.sendError(client, "Incomplete payload");
+    }
+
+    const { gameId } = payload;
+
+    const gameExists = await this.gameService.checkGameId(gameId);
+    if (!gameExists) {
+      this.sendError(client, "Game does not exist");
+      return;
+    }
+
+    const userId = client.userId;
+
+    if (userId) {
+      const newPlayerState: Player[] = await this.gameService.joinGameRoom(
+        gameId,
+        userId
+      );
+
+      this.send(client, {
+        event: MessageEvent.JOIN_ROOM,
+        payload: {
+          playerState: newPlayerState,
+          message: "Room joined successfully",
+        },
+      });
+
+      await this.pubSubManager.publish(
+        `game:${gameId}`,
+        JSON.stringify({
+          event: MessageEvent.PLAYER_UPDATE,
+          payload: {
+            action: "playerJoined",
+            playerState: newPlayerState,
+          },
+        })
+      );
+
+      await this.pubSubManager.subscribe(
+        `game:${gameId}`,
+        (message: string) => {
+          this.send(client, JSON.parse(message));
+        }
+      );
+    } else {
+      this.sendError(client, "Bad request");
     }
   }
 
@@ -93,7 +146,13 @@ export class CommunicationService {
 
     if (userId) {
       const gameId = await this.gameService.createGameRoom(userId);
-      // TODO add subscribers
+
+      await this.pubSubManager.subscribe(
+        `game:${gameId}`,
+        (message: string) => {
+          this.send(client, JSON.parse(message));
+        }
+      );
     } else {
       this.sendError(client, "Bad request");
     }

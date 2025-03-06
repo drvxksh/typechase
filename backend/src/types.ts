@@ -8,6 +8,8 @@ export enum MessageEvent {
   ERROR = "error",
   "CONNECT" = "connect",
   "CREATE_GAME" = "create_game",
+  "JOIN_ROOM" = "join_room",
+  "PLAYER_UPDATE" = "player_update",
 }
 
 export interface WebSocketMessage {

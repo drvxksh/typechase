@@ -26,4 +26,17 @@ export class GameService {
 
     return newGameId;
   }
+
+  public async checkGameId(gameId: string): Promise<boolean> {
+    return await this.storageService.checkGameId(gameId);
+  }
+
+  public async joinGameRoom(gameId: string, userId: string): Promise<Player[]> {
+    const player: Player = {
+      id: userId,
+      name: `Player_${userId.substring(0, 5)}`,
+    };
+
+    return await this.storageService.joinGame(gameId, player);
+  }
 }
