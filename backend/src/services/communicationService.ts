@@ -96,16 +96,73 @@ export class CommunicationService {
       case MessageEvent.JOIN_ROOM:
         this.handleJoinRoom(client, payload);
         break;
+      case MessageEvent.PLAYER_NAME_CHANGE:
+        this.handlePlayerNameChange(client, payload);
+        break;
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
         break;
     }
   }
 
-  private subscribeToGameChannel(
+  private async handlePlayerNameChange(
     client: SocketClient,
-    gameId: string,
+    payload: any,
   ): Promise<void> {
+    const { newName } = payload;
+
+    if (!newName) {
+      this.sendError(client, "Incomplete request: newName is missing");
+      return;
+    }
+
+    const userId = client.userId;
+    const gameId = client.gameId;
+
+    if (!gameId) {
+      this.sendError(client, "Unauthorized user: unknown game");
+      return;
+    }
+
+    if (!userId) {
+      this.sendError(client, "Unauthorized user: unknown user");
+      return;
+    }
+
+    const newPlayerState: Player[] = await this.gameService.changePlayerName(
+      gameId,
+      userId,
+      newName,
+    );
+
+    this.send(client, {
+      event: MessageEvent.PLAYER_NAME_CHANGE,
+      payload: {
+        playerState: newPlayerState,
+        message: "Player name changed successfully",
+      },
+    });
+
+    await this.pubSubManager.publish(
+      `game:${gameId}`,
+      JSON.stringify({
+        event: MessageEvent.PLAYER_UPDATE,
+        payload: {
+          action: "playerNameChanged",
+          playerState: newPlayerState,
+        },
+      }),
+    );
+  }
+
+  private async subscribeToGameChannel(client: SocketClient): Promise<void> {
+    const gameId = client.gameId;
+
+    if (!gameId) {
+      this.sendError(client, "Unauthorized user: unknown game");
+      return;
+    }
+
     return this.pubSubManager.subscribe(`game:${gameId}`, (message: string) => {
       this.send(client, JSON.parse(message));
     });
@@ -134,6 +191,8 @@ export class CommunicationService {
         userId,
       );
 
+      client.gameId = gameId;
+
       this.send(client, {
         event: MessageEvent.JOIN_ROOM,
         payload: {
@@ -153,7 +212,7 @@ export class CommunicationService {
         }),
       );
 
-      await this.subscribeToGameChannel(client, gameId);
+      await this.subscribeToGameChannel(client);
     } else {
       this.sendError(client, "Unauthorized: unknown user");
     }
@@ -168,7 +227,9 @@ export class CommunicationService {
     if (userId) {
       const gameId = await this.gameService.createGameRoom(userId);
 
-      await this.subscribeToGameChannel(client, gameId);
+      client.gameId = gameId;
+
+      await this.subscribeToGameChannel(client);
     } else {
       this.sendError(client, "Unauthorized: unknown user");
     }

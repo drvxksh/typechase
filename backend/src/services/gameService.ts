@@ -19,7 +19,7 @@ export class GameService {
     };
 
     const newGameId = uuid();
-
+    // TODO set this gameText
     const gameText = "";
 
     await this.storageService.addGame(newGameId, gameText, host);
@@ -28,7 +28,7 @@ export class GameService {
   }
 
   public async checkGameId(gameId: string): Promise<boolean> {
-    return await this.storageService.checkGameId(gameId);
+    return this.storageService.checkGameId(gameId);
   }
 
   public async joinGameRoom(gameId: string, userId: string): Promise<Player[]> {
@@ -37,6 +37,14 @@ export class GameService {
       name: `Player_${userId.substring(0, 5)}`,
     };
 
-    return await this.storageService.joinGame(gameId, player);
+    return this.storageService.joinGame(gameId, player);
+  }
+
+  public async changePlayerName(
+    gameId: string,
+    userId: string,
+    newName: string,
+  ): Promise<Player[]> {
+    return this.storageService.changePlayerName(gameId, userId, newName);
   }
 }

@@ -10,6 +10,7 @@ export enum MessageEvent {
   "CREATE_GAME" = "create_game",
   "JOIN_ROOM" = "join_room",
   "PLAYER_UPDATE" = "player_update",
+  "PLAYER_NAME_CHANGE" = "player_name_change",
 }
 
 export interface WebSocketMessage {

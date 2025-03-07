@@ -12,7 +12,7 @@ export class StorageService {
     this.redisClient = createClient();
 
     this.redisClient.on("error", (error) =>
-      console.error("Redis client error:", error)
+      console.error("Redis client error:", error),
     );
 
     this.redisClient.connect();
@@ -30,7 +30,7 @@ export class StorageService {
   public async addGame(
     gameId: string,
     gameText: string,
-    host: Player
+    host: Player,
   ): Promise<void> {
     const gameData = {
       id: gameId,
@@ -54,6 +54,28 @@ export class StorageService {
 
     const players: Player[] = JSON.parse(gameData.players);
     players.push(newPlayer);
+
+    await this.redisClient.hSet(gameId, {
+      ...gameData,
+      players: JSON.stringify(players),
+    });
+
+    return players;
+  }
+
+  public async changePlayerName(
+    gameId: string,
+    userId: string,
+    newName: string,
+  ): Promise<Player[]> {
+    const gameData = await this.redisClient.hGetAll(gameId);
+
+    const players: Player[] = JSON.parse(gameData.players);
+    const playerIndex = players.findIndex((player) => player.id === userId);
+
+    if (playerIndex !== -1) {
+      players[playerIndex].name = newName;
+    }
 
     await this.redisClient.hSet(gameId, {
       ...gameData,
