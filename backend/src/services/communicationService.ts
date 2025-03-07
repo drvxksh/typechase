@@ -18,7 +18,7 @@ export class CommunicationService {
     this.pubSubManager = createClient();
 
     this.pubSubManager.on("error", (err) =>
-      console.error("PubSubManager error:", err)
+      console.error("PubSubManager error:", err),
     );
 
     this.pubSubManager.connect();
@@ -67,33 +67,59 @@ export class CommunicationService {
 
   private processMessage(
     client: SocketClient,
-    message: WebSocketMessage
+    message: WebSocketMessage,
   ): void {
     if (!message) {
-      this.sendError(client, "Incomplete message");
+      this.sendError(client, "Incomplete request: message is missing");
+      return;
     }
 
     const { event, payload } = message;
 
+    if (!event) {
+      this.sendError(client, "Incomplete request: event is missing");
+      return;
+    }
+
+    if (!payload) {
+      this.sendError(client, "Incomplete request: payload is missing");
+      return;
+    }
+
     switch (event) {
       case MessageEvent.CONNECT:
         this.handleConnect(client, payload);
+        break;
       case MessageEvent.CREATE_GAME:
         this.handleCreateGame(client, payload);
+        break;
       case MessageEvent.JOIN_ROOM:
         this.handleJoinRoom(client, payload);
+        break;
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
+        break;
     }
   }
 
-  private async handleJoinRoom(client: SocketClient, payload: any) {
-    if (!payload) {
-      this.sendError(client, "Incomplete payload");
-    }
+  private subscribeToGameChannel(
+    client: SocketClient,
+    gameId: string,
+  ): Promise<void> {
+    return this.pubSubManager.subscribe(`game:${gameId}`, (message: string) => {
+      this.send(client, JSON.parse(message));
+    });
+  }
 
+  private async handleJoinRoom(client: SocketClient, payload: any) {
     const { gameId } = payload;
 
+    if (!gameId) {
+      this.sendError(client, "Incomplete request: gameId is missing");
+      return;
+    }
+
+    // Check that the game exists
     const gameExists = await this.gameService.checkGameId(gameId);
     if (!gameExists) {
       this.sendError(client, "Game does not exist");
@@ -105,7 +131,7 @@ export class CommunicationService {
     if (userId) {
       const newPlayerState: Player[] = await this.gameService.joinGameRoom(
         gameId,
-        userId
+        userId,
       );
 
       this.send(client, {
@@ -124,37 +150,27 @@ export class CommunicationService {
             action: "playerJoined",
             playerState: newPlayerState,
           },
-        })
+        }),
       );
 
-      await this.pubSubManager.subscribe(
-        `game:${gameId}`,
-        (message: string) => {
-          this.send(client, JSON.parse(message));
-        }
-      );
+      await this.subscribeToGameChannel(client, gameId);
     } else {
-      this.sendError(client, "Bad request");
+      this.sendError(client, "Unauthorized: unknown user");
     }
   }
 
   private async handleCreateGame(
     client: SocketClient,
-    payload: any
+    payload: any,
   ): Promise<void> {
     const userId = client.userId;
 
     if (userId) {
       const gameId = await this.gameService.createGameRoom(userId);
 
-      await this.pubSubManager.subscribe(
-        `game:${gameId}`,
-        (message: string) => {
-          this.send(client, JSON.parse(message));
-        }
-      );
+      await this.subscribeToGameChannel(client, gameId);
     } else {
-      this.sendError(client, "Bad request");
+      this.sendError(client, "Unauthorized: unknown user");
     }
   }
 
