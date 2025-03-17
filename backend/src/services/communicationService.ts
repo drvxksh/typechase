@@ -57,6 +57,19 @@ export class CommunicationService {
     });
   }
 
+  private sendError(client: SocketClient, errorMessage: string): void {
+    this.send(client, {
+      event: MessageEvent.ERROR,
+      payload: { message: errorMessage },
+    });
+  }
+
+  private send(client: SocketClient, message: WebSocketMessage) {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(message));
+    }
+  }
+
   /**
    * Initializes the Communication Service
    * @param server - HTTP server instance to bind with the WebSocket
@@ -85,22 +98,37 @@ export class CommunicationService {
     const { event, payload } = message;
 
     switch (event) {
+      case MessageEvent.CONNECT:
+        this.handleConnect(client, payload);
+        break;
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
         break;
     }
   }
 
-  private sendError(client: SocketClient, errorMessage: string): void {
-    this.send(client, {
-      event: MessageEvent.ERROR,
-      payload: { message: errorMessage },
-    });
-  }
+  /**
+   * Handles connection requests from clients
+   * @param client - The WebSocket client
+   * @param payload - The message payload containing optional playerId
+   */
+  private handleConnect(client: SocketClient, payload: any): void {
+    const { playerId } = payload;
 
-  private send(client: SocketClient, message: WebSocketMessage) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(message));
+    if (playerId) {
+      // this is a returning user
+    } else {
+      // create a new user
+      const newUserId = uuid();
+      client.userId = newUserId;
+      // we don't store this user into redis right now because it is not important that this user is committed in playing a game. he could be casually checking in.
     }
+
+    this.send(client, {
+      event: MessageEvent.CONNECT,
+      payload: {
+        playerId: client.userId,
+      },
+    });
   }
 }
