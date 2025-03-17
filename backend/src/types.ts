@@ -30,6 +30,23 @@ export interface BroadcastMessage {
 export interface Player {
   id: string;
   name: string;
+  currentGameId: string | null;
+  gamesPlayed: {
+    id: string;
+    position: number;
+    wpm: number;
+    accuracy: number;
+    time: number;
+  }[];
+}
+
+export interface Game {
+  id: string;
+  hostId: string;
+  playerIds: string[];
+  status: GameStatus;
+  gameText: string;
+  createdAt: Date;
 }
 
 export enum GameStatus {

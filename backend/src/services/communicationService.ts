@@ -101,6 +101,8 @@ export class CommunicationService {
       case MessageEvent.CONNECT:
         this.handleConnect(client, payload);
         break;
+      case MessageEvent.CREATE_GAME:
+        this.handleCreateGame(client, payload);
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
         break;
@@ -128,7 +130,71 @@ export class CommunicationService {
       event: MessageEvent.CONNECT,
       payload: {
         playerId: client.userId,
+        success: true,
       },
+    });
+  }
+
+  /**
+   * Handles game creation requests from clients
+   * @param client - The WebSocket client
+   * @param payload - The message payload for game creation
+   * @returns A Promise that resolves when game creation handling is complete
+   */
+  private async handleCreateGame(
+    client: SocketClient,
+    payload: any,
+  ): Promise<void> {
+    const userId = this.validateClient(client);
+
+    if (!userId) return;
+
+    const gameId = await this.gameService.createGame(userId);
+
+    client.gameId = gameId;
+
+    await this.subscribeToGame(client);
+
+    this.send(client, {
+      event: MessageEvent.CREATE_GAME,
+      payload: {
+        success: true,
+      },
+    });
+  }
+
+  /**
+   * Validates if client has a valid userId and is not already part of a game
+   * @param client - The WebSocket client to validate
+   * @returns The userId if valid, null otherwise
+   */
+  private validateClient(client: SocketClient): string | null {
+    if (!client.userId) {
+      this.sendError(client, "Bad request: unknown user");
+      return null;
+    }
+    if (client.gameId) {
+      this.sendError(client, "Bad request: user already part of a game");
+      return null;
+    }
+
+    return client.userId;
+  }
+
+  /**
+   * Subscribes a client to game updates via Redis PubSub
+   * @param client - The WebSocket client to subscribe
+   * @throws Error if the client is not associated with a game
+   * @returns A Promise that resolves when subscription is complete
+   */
+  private subscribeToGame(client: SocketClient): Promise<void> {
+    const gameId = client.gameId;
+
+    if (!gameId)
+      throw new Error("Cannot subscribe to game: client is not in a game");
+
+    return this.pubSubManager.subscribe(`game:${gameId}`, (message: string) => {
+      this.send(client, JSON.parse(message)); // send the message directly
     });
   }
 }
