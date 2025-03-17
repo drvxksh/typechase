@@ -5,16 +5,25 @@ export interface SocketClient extends WebSocket {
 }
 
 export enum MessageEvent {
-  ERROR = "error",
+  "ERROR" = "error",
   "CONNECT" = "connect",
   "CREATE_GAME" = "create_game",
-  "JOIN_ROOM" = "join_room",
+  "JOIN_GAME" = "join_game",
+  "CHANGE_USERNAME" = "change_username",
+  "START_GAME" = "start_game",
   "PLAYER_UPDATE" = "player_update",
-  "PLAYER_NAME_CHANGE" = "player_name_change",
+  "FINISH_GAME" = "finish_game",
 }
 
 export interface WebSocketMessage {
   event: MessageEvent;
+  payload: any;
+}
+
+export enum BroadcastEvent {}
+
+export interface BroadcastMessage {
+  event: BroadcastEvent;
   payload: any;
 }
 
