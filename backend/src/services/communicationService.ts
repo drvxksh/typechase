@@ -115,6 +115,9 @@ export class CommunicationService {
       case MessageEvent.JOIN_GAME:
         this.handleJoinGame(client, payload);
         break;
+      case MessageEvent.CHANGE_USERNAME:
+        this.handleChangeUsername(client, payload);
+        break;
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
         break;
@@ -265,5 +268,30 @@ export class CommunicationService {
 
     // subscribe this user to the gameRoom
     await this.subscribeToGame(client);
+  }
+
+  private async handleChangeUsername(client: SocketClient, payload: any) {
+    const playerId = this.validateClient(client);
+
+    if (!playerId) return;
+
+    const { newUsername } = payload;
+
+    // update the newUsername in the redis object
+    await this.gameService.changeUsername(playerId, newUsername);
+
+    // publish the event to others
+    await this.pubSubManager.publish(
+      `game:${client.gameId}`,
+      JSON.stringify({
+        event: BroadcastEvent.USERNAME_CHANGED,
+        payload: {
+          updatedPlayer: {
+            playerId,
+            playerName: newUsername,
+          },
+        },
+      }),
+    );
   }
 }

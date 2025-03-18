@@ -83,4 +83,17 @@ export class GameService {
   public async getPlayerState(playerId: string): Promise<PlayerState> {
     return this.storageService.getPlayerState(playerId);
   }
+
+  /**
+   * Updates the player's username in the storage service
+   * @param playerId The unique identifier of the player whose username will be changed
+   * @param newUsername The new username to assign to the player
+   * @returns A Promise that resolves when the username has been successfully updated
+   */
+  public async changeUsername(
+    playerId: string,
+    newUsername: string,
+  ): Promise<void> {
+    return this.storageService.changeUsername(playerId, newUsername);
+  }
 }

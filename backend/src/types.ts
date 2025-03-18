@@ -23,6 +23,7 @@ export interface WebSocketMessage {
 
 export enum BroadcastEvent {
   "NEW_PLAYER_JOINED" = "new_player_joined",
+  "USERNAME_CHANGED" = "username_changed",
 }
 
 export interface BroadcastMessage {

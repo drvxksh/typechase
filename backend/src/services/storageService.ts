@@ -165,6 +165,22 @@ export class StorageService {
   }
 
   /**
+   * Verifies that a player exists in storage.
+   *
+   * @param playerId - The unique identifier of the player to verify.
+   * @returns A Promise that resolves if the player exists.
+   * @throws Error if the player with the specified ID does not exist.
+   */
+  private async verifyPlayer(playerId: string) {
+    // verify that this player exists
+    const playerExists = this.checkExistingPlayer(playerId);
+
+    if (!playerExists) {
+      throw new Error("Player with ID ${playerId} does not exist");
+    }
+  }
+
+  /**
    * Retrieves information about a player.
    *
    * @param playerId - The unique identifier of the player.
@@ -172,12 +188,8 @@ export class StorageService {
    * @throws Error if the player with the specified ID does not exist.
    */
   public async getPlayerState(playerId: string): Promise<PlayerState> {
-    // verify that this player exists
-    const playerExists = this.checkExistingPlayer(playerId);
-
-    if (!playerExists) {
-      throw new Error("Player with ID ${playerId} does not exist");
-    }
+    // verify that the player exists
+    await this.verifyPlayer(playerId);
 
     // return the id and name
     const player = (await this.redisClient.json.get(
@@ -188,5 +200,32 @@ export class StorageService {
       playerId: player.id,
       playerName: player.name,
     };
+  }
+
+  /**
+   * Changes the username of a player.
+   *
+   * @param playerId - The unique identifier of the player whose username should be changed.
+   * @param newUsername - The new username to assign to the player.
+   * @returns A Promise that resolves when the username has been successfully changed.
+   * @throws Error if the player with the specified ID does not exist.
+   */
+  public async changeUsername(
+    playerId: string,
+    newUsername: string,
+  ): Promise<void> {
+    // verify that the user exists
+    await this.verifyPlayer(playerId);
+
+    // fetch the player, update and save
+    const player = (await this.redisClient.json.get(
+      `player:${playerId}`,
+    )) as unknown as Player;
+
+    player.name = newUsername;
+
+    (await this.redisClient.json.set(`player:${playerId}`, "$", {
+      ...player,
+    })) as unknown as Player;
   }
 }
