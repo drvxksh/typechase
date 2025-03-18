@@ -3,9 +3,11 @@ import { createClient, RedisClientType } from "redis";
 import WebSocket from "ws";
 import { GameService } from "./gameService";
 import {
+  BroadcastEvent,
   MAX_SIZE,
   MessageEvent,
   Player,
+  PlayerState,
   SocketClient,
   WebSocketMessage,
 } from "../types";
@@ -155,20 +157,23 @@ export class CommunicationService {
     client: SocketClient,
     payload: any,
   ): Promise<void> {
-    const userId = this.validateClient(client);
+    const playerId = this.validateClient(client);
 
-    if (!userId) return;
+    if (!playerId) return;
 
-    const gameId = await this.gameService.createGame(userId);
+    const gameId = await this.gameService.createGame(playerId);
 
     client.gameId = gameId;
 
     await this.subscribeToGame(client);
 
+    const hostPlayer = await this.gameService.getPlayerState(playerId);
+
     this.send(client, {
       event: MessageEvent.CREATE_GAME,
       payload: {
         success: true,
+        hostPlayer,
       },
     });
   }
@@ -232,7 +237,33 @@ export class CommunicationService {
     // add the current player to that gameRoom
     await this.gameService.addPlayer(playerId, gameId);
 
-    // subscribe to this game room
+    // send back the currentPlayer state to this client
+    const allPlayers: PlayerState[] =
+      await this.gameService.getAllPlayers(gameId);
+
+    this.send(client, {
+      event: MessageEvent.JOIN_GAME,
+      payload: {
+        success: true,
+        allPlayers,
+      },
+    });
+
+    // publish to others of this new player
+    const newPlayerState: PlayerState =
+      await this.gameService.getPlayerState(playerId);
+
+    await this.pubSubManager.publish(
+      `game:{gameId}`,
+      JSON.stringify({
+        event: BroadcastEvent.NEW_PLAYER_JOINED,
+        payload: {
+          newPlayerState,
+        },
+      }),
+    );
+
+    // subscribe this user to the gameRoom
     await this.subscribeToGame(client);
   }
 }

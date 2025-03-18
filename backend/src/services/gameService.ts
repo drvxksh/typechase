@@ -1,4 +1,4 @@
-import { Game, GameStatus, Player } from "../types";
+import { Game, GameStatus, Player, PlayerState } from "../types";
 import { StorageService } from "./storageService";
 import { v4 as uuid } from "uuid";
 
@@ -64,5 +64,23 @@ export class GameService {
       // or create a new player, also adding the userId to the game
       await this.storageService.createNewPlayer(playerId, gameId);
     }
+  }
+
+  /**
+   * Retrieves the player states (IDs and names) for all players in a game
+   * @param gameId The unique identifier of the game
+   * @returns A Promise resolving to an array of PlayerState objects containing player IDs and names
+   */
+  public async getAllPlayers(gameId: string): Promise<PlayerState[]> {
+    return this.storageService.getAllPlayers(gameId);
+  }
+
+  /**
+   * Retrieves the player state(ID and name) for the required player
+   * @param playerId The unique identifier of the player
+   * @returns A Promise resolving to an array of PlayerState objects containing player IDs and names
+   */
+  public async getPlayerState(playerId: string): Promise<PlayerState> {
+    return this.storageService.getPlayerState(playerId);
   }
 }

@@ -1,5 +1,5 @@
 import { createClient, RedisClientType } from "redis";
-import { Game, GameStatus, Player } from "../types";
+import { Game, GameStatus, Player, PlayerState } from "../types";
 
 /**
  * Stores game/player info into redis for some persistence.
@@ -106,6 +106,14 @@ export class StorageService {
     await this.redisClient.json.set(`game:${gameId}`, "$", { ...game });
   }
 
+  private async verifyGameRoom(gameId: string): Promise<void> {
+    const roomExists = await this.redisClient.exists(`game:${gameId}`);
+
+    if (roomExists !== 1) {
+      throw new Error("Room with ID ${gameId} does not exist");
+    }
+  }
+
   /**
    * Gets the number of players in a game room.
    *
@@ -114,12 +122,7 @@ export class StorageService {
    * @throws Error if the room with the specified ID does not exist.
    */
   public async getRoomSize(gameId: string): Promise<number> {
-    // verify that the room actually is there or not
-    const roomExists = await this.redisClient.exists(`game:${gameId}`);
-
-    if (roomExists !== 1) {
-      throw new Error("Room with ID ${gameId} does not exist");
-    }
+    await this.verifyGameRoom(gameId);
 
     // fetch the size of the room
     const game = (await this.redisClient.json.get(
@@ -127,5 +130,63 @@ export class StorageService {
     )) as unknown as Game;
 
     return game.playerIds.length;
+  }
+
+  /**
+   * Gets player state information for a given game.
+   *
+   * @param gameId - The unique identifier of the game.
+   * @returns A Promise that resolves to an array of PlayerState objects containing player IDs and names.
+   * @throws Error if the room with the specified ID does not exist.
+   */
+  public async getAllPlayers(gameId: string): Promise<PlayerState[]> {
+    // ensure that this gameRoom actually exists
+    await this.verifyGameRoom(gameId);
+
+    // fetch the game object
+    const game = (await this.redisClient.json.get(
+      `game:${gameId}`,
+    )) as unknown as Game;
+
+    // return the player state
+    const playerStates: PlayerState[] = [];
+
+    for (const playerId of game.playerIds) {
+      const player = (await this.redisClient.json.get(
+        `player:${playerId}`,
+      )) as unknown as Player;
+
+      playerStates.push({
+        playerId: player.id,
+        playerName: player.name,
+      });
+    }
+    return playerStates;
+  }
+
+  /**
+   * Retrieves information about a player.
+   *
+   * @param playerId - The unique identifier of the player.
+   * @returns A Promise that resolves to a PlayerState object containing the player's ID and name.
+   * @throws Error if the player with the specified ID does not exist.
+   */
+  public async getPlayerState(playerId: string): Promise<PlayerState> {
+    // verify that this player exists
+    const playerExists = this.checkExistingPlayer(playerId);
+
+    if (!playerExists) {
+      throw new Error("Player with ID ${playerId} does not exist");
+    }
+
+    // return the id and name
+    const player = (await this.redisClient.json.get(
+      `player:${playerId}`,
+    )) as unknown as Player;
+
+    return {
+      playerId: player.id,
+      playerName: player.name,
+    };
   }
 }

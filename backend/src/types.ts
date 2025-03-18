@@ -21,7 +21,9 @@ export interface WebSocketMessage {
   payload: any;
 }
 
-export enum BroadcastEvent {}
+export enum BroadcastEvent {
+  "NEW_PLAYER_JOINED" = "new_player_joined",
+}
 
 export interface BroadcastMessage {
   event: BroadcastEvent;
@@ -59,3 +61,8 @@ export enum GameStatus {
 
 export const MIN_SIZE = 2;
 export const MAX_SIZE = 5;
+
+export interface PlayerState {
+  playerId: string;
+  playerName: string;
+}
