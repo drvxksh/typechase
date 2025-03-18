@@ -2,7 +2,13 @@ import http from "http";
 import { createClient, RedisClientType } from "redis";
 import WebSocket from "ws";
 import { GameService } from "./gameService";
-import { MessageEvent, Player, SocketClient, WebSocketMessage } from "../types";
+import {
+  MAX_SIZE,
+  MessageEvent,
+  Player,
+  SocketClient,
+  WebSocketMessage,
+} from "../types";
 import { v4 as uuid } from "uuid";
 
 /**
@@ -103,6 +109,10 @@ export class CommunicationService {
         break;
       case MessageEvent.CREATE_GAME:
         this.handleCreateGame(client, payload);
+        break;
+      case MessageEvent.JOIN_GAME:
+        this.handleJoinGame(client, payload);
+        break;
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
         break;
@@ -121,15 +131,15 @@ export class CommunicationService {
       // this is a returning user
     } else {
       // create a new user
-      const newUserId = uuid();
-      client.userId = newUserId;
+      const newPlayerId = uuid();
+      client.playerId = newPlayerId;
       // we don't store this user into redis right now because it is not important that this user is committed in playing a game. he could be casually checking in.
     }
 
     this.send(client, {
       event: MessageEvent.CONNECT,
       payload: {
-        playerId: client.userId,
+        playerId: client.playerId,
         success: true,
       },
     });
@@ -169,7 +179,7 @@ export class CommunicationService {
    * @returns The userId if valid, null otherwise
    */
   private validateClient(client: SocketClient): string | null {
-    if (!client.userId) {
+    if (!client.playerId) {
       this.sendError(client, "Bad request: unknown user");
       return null;
     }
@@ -178,7 +188,7 @@ export class CommunicationService {
       return null;
     }
 
-    return client.userId;
+    return client.playerId;
   }
 
   /**
@@ -196,5 +206,33 @@ export class CommunicationService {
     return this.pubSubManager.subscribe(`game:${gameId}`, (message: string) => {
       this.send(client, JSON.parse(message)); // send the message directly
     });
+  }
+
+  private async handleJoinGame(client: SocketClient, payload: any) {
+    const playerId = this.validateClient(client);
+
+    if (!playerId) return;
+
+    // verify that the room size has not exceeded the max size
+    const currentSize = await this.gameService.getRoomSize(playerId);
+
+    if (currentSize > MAX_SIZE) {
+      this.sendError(client, "Room is full. Try another game.");
+      return;
+    }
+
+    // extract the gameId from the payload
+    const { gameId } = payload;
+
+    if (!gameId) {
+      this.sendError(client, "Bad request: gameId is required to join a game");
+      return;
+    }
+
+    // add the current player to that gameRoom
+    await this.gameService.addPlayer(playerId, gameId);
+
+    // subscribe to this game room
+    await this.subscribeToGame(client);
   }
 }

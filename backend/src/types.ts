@@ -1,6 +1,7 @@
 import WebSocket from "ws";
+
 export interface SocketClient extends WebSocket {
-  userId?: string;
+  playerId?: string;
   gameId?: string;
 }
 
@@ -55,3 +56,6 @@ export enum GameStatus {
   IN_PROGRESS = "in_progress",
   COMPLETED = "completed",
 }
+
+export const MIN_SIZE = 2;
+export const MAX_SIZE = 5;

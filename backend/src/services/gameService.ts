@@ -22,7 +22,7 @@ export class GameService {
     const newGame: Game = {
       id: uuid(),
       hostId,
-      playerIds: [hostId],
+      playerIds: [], // the current host will be added by the update/create services
       status: GameStatus.WAITING,
       gameText: "",
       createdAt: new Date(),
@@ -31,18 +31,38 @@ export class GameService {
     // store this game
     await this.storageService.createGame(newGame);
 
-    // check if this user exists in the store, if it does then we have to update its currentGameId
-    const userExists = await this.storageService.checkExistingUser(hostId);
-
-    if (userExists) {
-      // update
-      await this.storageService.updatePlayerGameId(hostId, newGame.id);
-    } else {
-      // or create a new player
-      await this.storageService.createNewPlayer(hostId, newGame.id);
-    }
+    // add the player to the game
+    await this.addPlayer(hostId, newGame.id);
 
     // return the gameId
     return newGame.id;
+  }
+
+  /**
+   * Gets the number of players in a specific game
+   * @param gameId The unique identifier of the room
+   * @returns A Promise resolving to the number of players in the room
+   */
+  public async getRoomSize(gameId: string): Promise<number> {
+    return this.storageService.getRoomSize(gameId);
+  }
+
+  /**
+   * Creates a player object if it doesn't exist and adds the player to the given gameId
+   * @param playerId The unique identifier of the player to add
+   * @param gameId The unique identifier of the game to add the player to
+   * @returns A Promise that resolves when the player has been added to the game
+   */
+  public async addPlayer(playerId: string, gameId: string): Promise<void> {
+    // check if this user exists in the store, if it does then we have to update its currentGameId
+    const userExists = await this.storageService.checkExistingPlayer(playerId);
+
+    if (userExists) {
+      // update the player object and add the userId to the game
+      await this.storageService.updatePlayerGameId(playerId, gameId);
+    } else {
+      // or create a new player, also adding the userId to the game
+      await this.storageService.createNewPlayer(playerId, gameId);
+    }
   }
 }
