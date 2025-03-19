@@ -97,6 +97,12 @@ export class GameService {
     return this.storageService.changeUsername(playerId, newUsername);
   }
 
+  /**
+   * Updates the status of a specific game
+   * @param gameId The unique identifier of the game to update
+   * @param newState The new GameStatus to assign to the game
+   * @returns A Promise that resolves when the game state has been successfully updated
+   */
   public async updateGameState(gameId: string, newState: GameStatus) {
     return this.storageService.updateGameState(gameId, newState);
   }

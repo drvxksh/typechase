@@ -28,15 +28,98 @@ export class StorageService {
   }
 
   /**
+   * Gets a game object from Redis storage by game ID.
+   *
+   * @param gameId - The unique identifier of the game to retrieve.
+   * @returns A Promise that resolves to the Game object corresponding to the given ID.
+   */
+  private async getGameObj(gameId: string): Promise<Game> {
+    const game = (await this.redisClient.json.get(
+      `game:${gameId}`,
+    )) as unknown as Game;
+
+    return game;
+  }
+
+  /**
+   * Saves a Game object to Redis storage.
+   *
+   * @param gameId - The unique identifier of the game to save.
+   * @param newObj - The Game object to be saved.
+   * @returns A Promise that resolves when the game is successfully saved.
+   */
+  private async saveGameObj(gameId: string, newObj: Game): Promise<void> {
+    await this.redisClient.json.set(`game:${gameId}`, "$", { ...newObj });
+  }
+
+  /**
+   * Gets a player object from Redis storage by player ID.
+   *
+   * @param playerId - The unique identifier of the player to retrieve.
+   * @returns A Promise that resolves to the Player object corresponding to the given ID.
+   */
+  private async getPlayerObj(playerId: string): Promise<Player> {
+    const player = (await this.redisClient.json.get(
+      `player:${playerId}`,
+    )) as unknown as Player;
+
+    return player;
+  }
+
+  /**
+   * Saves a Player object to Redis storage.
+   *
+   * @param playerId - The unique identifier of the player to save.
+   * @param newObj - The Player object to be saved.
+   * @returns A Promise that resolves when the player is successfully saved.
+   */
+  private async savePlayerObj(playerId: string, newObj: Player): Promise<void> {
+    await this.redisClient.json.set(`player:${playerId}`, "$", { ...newObj });
+  }
+
+  /**
+   * Verifies that a game room exists in storage.
+   *
+   * @param gameId - The unique identifier of the game room to verify.
+   * @returns A Promise that resolves if the game room exists.
+   * @throws Error if the game room with the specified ID does not exist.
+   */
+  private async verifyGameRoom(gameId: string): Promise<void> {
+    const roomExists = await this.redisClient.exists(`game:${gameId}`);
+
+    if (roomExists !== 1) {
+      throw new Error(`Room with ID ${gameId} does not exist`);
+    }
+  }
+
+  /**
+   * Verifies that a player exists in storage.
+   *
+   * @param playerId - The unique identifier of the player to verify.
+   * @returns A Promise that resolves if the player exists.
+   * @throws Error if the player with the specified ID does not exist.
+   */
+  private async verifyPlayer(playerId: string): Promise<void> {
+    const playerExists = await this.redisClient.exists(`player:${playerId}`);
+
+    if (playerExists !== 1) {
+      throw new Error(`Player with ID ${playerId} oes not exist`);
+    }
+  }
+
+  /**
    * Checks if a player with the given ID exists in storage.
    *
    * @param userId - The unique identifier of the user to check.
    * @returns A Promise that resolves to true if the user exists, false otherwise.
    */
   public async checkExistingPlayer(playerId: string): Promise<boolean> {
-    const playerExists = await this.redisClient.exists(`player:${playerId}`);
-
-    return playerExists == 1;
+    try {
+      await this.verifyPlayer(playerId);
+      return true;
+    } catch (err) {
+      return false;
+    }
   }
 
   /**
@@ -46,7 +129,7 @@ export class StorageService {
    * @returns A Promise that resolves when the game is successfully created.
    */
   public async createGame(game: Game): Promise<void> {
-    await this.redisClient.json.set(`game:${game.id}`, "$", { ...game });
+    await this.saveGameObj(game.id, game);
   }
 
   /**
@@ -57,23 +140,23 @@ export class StorageService {
    * @returns A Promise that resolves when the player's game ID is successfully updated.
    */
   public async updatePlayerGameId(playerId: string, gameId: string) {
+    // verify playerId and gameId
+    await this.verifyPlayer(playerId);
+    await this.verifyGameRoom(gameId);
+
     // change the currentGameId of the player
-    const player = (await this.redisClient.json.get(
-      `player:${playerId}`,
-    )) as unknown as Player;
+    const player = await this.getPlayerObj(playerId);
 
     player.currentGameId = gameId;
 
-    await this.redisClient.json.set(`player:${playerId}`, "$", { ...player });
+    await this.savePlayerObj(playerId, player);
 
     // add this playerId in the game
-    const game = (await this.redisClient.json.get(
-      `game:${gameId}`,
-    )) as unknown as Game;
+    const game = await this.getGameObj(gameId);
 
     game.playerIds.push(player.id);
 
-    await this.redisClient.json.set(`game:${gameId}`, "$", { ...game });
+    await this.saveGameObj(gameId, game);
   }
 
   /**
@@ -92,26 +175,14 @@ export class StorageService {
       gamesPlayed: [],
     };
 
-    await this.redisClient.json.set(`player:${playerId}`, "$", {
-      ...newPlayer,
-    });
+    await this.savePlayerObj(playerId, newPlayer);
 
     // add the player to the game
-    const game = (await this.redisClient.json.get(
-      `game:${gameId}`,
-    )) as unknown as Game;
+    const game = await this.getGameObj(gameId);
 
     game.playerIds.push(newPlayer.id);
 
-    await this.redisClient.json.set(`game:${gameId}`, "$", { ...game });
-  }
-
-  private async verifyGameRoom(gameId: string): Promise<void> {
-    const roomExists = await this.redisClient.exists(`game:${gameId}`);
-
-    if (roomExists !== 1) {
-      throw new Error("Room with ID ${gameId} does not exist");
-    }
+    await this.saveGameObj(gameId, game);
   }
 
   /**
@@ -125,9 +196,7 @@ export class StorageService {
     await this.verifyGameRoom(gameId);
 
     // fetch the size of the room
-    const game = (await this.redisClient.json.get(
-      `game:${gameId}`,
-    )) as unknown as Game;
+    const game = await this.getGameObj(gameId);
 
     return game.playerIds.length;
   }
@@ -144,17 +213,13 @@ export class StorageService {
     await this.verifyGameRoom(gameId);
 
     // fetch the game object
-    const game = (await this.redisClient.json.get(
-      `game:${gameId}`,
-    )) as unknown as Game;
+    const game = await this.getGameObj(gameId);
 
     // return the player state
     const playerStates: PlayerState[] = [];
 
     for (const playerId of game.playerIds) {
-      const player = (await this.redisClient.json.get(
-        `player:${playerId}`,
-      )) as unknown as Player;
+      const player = await this.getPlayerObj(playerId);
 
       playerStates.push({
         playerId: player.id,
@@ -162,22 +227,6 @@ export class StorageService {
       });
     }
     return playerStates;
-  }
-
-  /**
-   * Verifies that a player exists in storage.
-   *
-   * @param playerId - The unique identifier of the player to verify.
-   * @returns A Promise that resolves if the player exists.
-   * @throws Error if the player with the specified ID does not exist.
-   */
-  private async verifyPlayer(playerId: string) {
-    // verify that this player exists
-    const playerExists = this.checkExistingPlayer(playerId);
-
-    if (!playerExists) {
-      throw new Error("Player with ID ${playerId} does not exist");
-    }
   }
 
   /**
@@ -192,9 +241,7 @@ export class StorageService {
     await this.verifyPlayer(playerId);
 
     // return the id and name
-    const player = (await this.redisClient.json.get(
-      `player:${playerId}`,
-    )) as unknown as Player;
+    const player = await this.getPlayerObj(playerId);
 
     return {
       playerId: player.id,
@@ -218,24 +265,29 @@ export class StorageService {
     await this.verifyPlayer(playerId);
 
     // fetch the player, update and save
-    const player = (await this.redisClient.json.get(
-      `player:${playerId}`,
-    )) as unknown as Player;
+    const player = await this.getPlayerObj(playerId);
 
     player.name = newUsername;
 
-    (await this.redisClient.json.set(`player:${playerId}`, "$", {
-      ...player,
-    })) as unknown as Player;
+    await this.savePlayerObj(playerId, player);
   }
 
+  /**
+   * Updates the status of a game.
+   *
+   * @param gameId - The unique identifier of the game to update.
+   * @param newState - The new game status to set.
+   * @returns A Promise that resolves when the game status has been successfully updated.
+   * @throws Error if the game with the specified ID does not exist.
+   */
   public async updateGameState(gameId: string, newState: GameStatus) {
-    const game = (await this.redisClient.json.get(
-      `game:${gameId}`,
-    )) as unknown as Game;
+    // verify that the game exists
+    await this.verifyGameRoom(gameId);
 
-    game.status = GameStatus.STARTING;
+    const game = await this.getGameObj(gameId);
 
-    await this.redisClient.json.set(`gameId:${gameId}`, "$", { ...game });
+    game.status = newState;
+
+    await this.saveGameObj(gameId, game);
   }
 }
