@@ -4,8 +4,10 @@ import WebSocket from "ws";
 import { GameService } from "./gameService";
 import {
   BroadcastEvent,
+  GameStatus,
   MAX_SIZE,
   MessageEvent,
+  MIN_SIZE,
   Player,
   PlayerState,
   SocketClient,
@@ -117,6 +119,9 @@ export class CommunicationService {
         break;
       case MessageEvent.CHANGE_USERNAME:
         this.handleChangeUsername(client, payload);
+        break;
+      case MessageEvent.START_GAME:
+        this.handleStartGame(client, payload);
         break;
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
@@ -293,5 +298,61 @@ export class CommunicationService {
         },
       }),
     );
+  }
+
+  private async handleStartGame(client: SocketClient, payload: any) {
+    const playerId = this.validateClient(client);
+
+    if (!playerId) return;
+
+    const { gameId } = payload;
+
+    // check that the game has atleast MIN_SIZE players
+    const size = await this.gameService.getRoomSize(gameId);
+
+    if (size < MIN_SIZE) {
+      this.sendError(client, "Not enought players to start the game");
+      return;
+    }
+
+    // update the state of the room
+    await this.gameService.updateGameState(gameId, GameStatus.STARTING);
+
+    // start the countdown and broadcast
+    let countdownTimer: NodeJS.Timeout;
+    let count = 10;
+
+    countdownTimer = setTimeout(async () => {
+      if (count < 0) {
+        await this.pubSubManager.publish(
+          `game:${gameId}`,
+          JSON.stringify({
+            event: BroadcastEvent.GAME_STARTED,
+            payload: {
+              message: "Game started!",
+            },
+          }),
+        );
+
+        await this.gameService.updateGameState(gameId, GameStatus.IN_PROGRESS);
+        clearTimeout(countdownTimer);
+      }
+
+      await this.pubSubManager.publish(
+        `game:${gameId}`,
+        JSON.stringify({
+          event: BroadcastEvent.GAME_STARTING,
+          payload: {
+            count,
+            message: count === 0 ? "Go!" : `Starting in ${count}...`,
+          },
+        }),
+      );
+
+      count--;
+    }, 1000);
+
+    // change the state to in progress
+    await this.gameService.updateGameState(gameId, GameStatus.IN_PROGRESS);
   }
 }

@@ -96,4 +96,8 @@ export class GameService {
   ): Promise<void> {
     return this.storageService.changeUsername(playerId, newUsername);
   }
+
+  public async updateGameState(gameId: string, newState: GameStatus) {
+    return this.storageService.updateGameState(gameId, newState);
+  }
 }

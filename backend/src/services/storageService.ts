@@ -228,4 +228,14 @@ export class StorageService {
       ...player,
     })) as unknown as Player;
   }
+
+  public async updateGameState(gameId: string, newState: GameStatus) {
+    const game = (await this.redisClient.json.get(
+      `game:${gameId}`,
+    )) as unknown as Game;
+
+    game.status = GameStatus.STARTING;
+
+    await this.redisClient.json.set(`gameId:${gameId}`, "$", { ...game });
+  }
 }
