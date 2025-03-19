@@ -156,6 +156,23 @@ export class CommunicationService {
   }
 
   /**
+   * Subscribes a client to game updates via Redis PubSub
+   * @param client - The WebSocket client to subscribe
+   * @throws Error if the client is not associated with a game
+   * @returns A Promise that resolves when subscription is complete
+   */
+  private subscribeToGame(client: SocketClient): Promise<void> {
+    // checks that the socket is a valid player.
+    this.verifySocket(client);
+
+    const gameId = client.gameId;
+
+    return this.pubSubManager.subscribe(`game:${gameId}`, (message: string) => {
+      this.send(client, JSON.parse(message)); // send the message directly
+    });
+  }
+
+  /**
    * Handles game creation requests from clients
    * @param client - The WebSocket client
    * @param payload - The message payload for game creation
@@ -165,13 +182,23 @@ export class CommunicationService {
     client: SocketClient,
     payload: any,
   ): Promise<void> {
-    const playerId = this.validateClient(client);
+    const playerId = client.playerId;
 
-    if (!playerId) return;
+    if (!playerId) {
+      this.sendError(client, "Bad request: unknown user");
+      return;
+    }
 
-    const gameId = await this.gameService.createGame(playerId);
+    const gameId = client.gameId;
 
-    client.gameId = gameId;
+    if (gameId) {
+      this.sendError(client, "Bad request: user is already part of a game");
+      return;
+    }
+
+    const newGameId = await this.gameService.createGame(playerId);
+
+    client.gameId = newGameId;
 
     await this.subscribeToGame(client);
 
@@ -181,50 +208,25 @@ export class CommunicationService {
       event: MessageEvent.CREATE_GAME,
       payload: {
         success: true,
+        gameId: newGameId,
         hostPlayer,
       },
     });
   }
 
-  /**
-   * Validates if client has a valid userId and is not already part of a game
-   * @param client - The WebSocket client to validate
-   * @returns The userId if valid, null otherwise
-   */
-  private validateClient(client: SocketClient): string | null {
-    if (!client.playerId) {
-      this.sendError(client, "Bad request: unknown user");
-      return null;
-    }
-    if (client.gameId) {
-      this.sendError(client, "Bad request: user already part of a game");
-      return null;
-    }
-
-    return client.playerId;
-  }
-
-  /**
-   * Subscribes a client to game updates via Redis PubSub
-   * @param client - The WebSocket client to subscribe
-   * @throws Error if the client is not associated with a game
-   * @returns A Promise that resolves when subscription is complete
-   */
-  private subscribeToGame(client: SocketClient): Promise<void> {
-    const gameId = client.gameId;
-
-    if (!gameId)
-      throw new Error("Cannot subscribe to game: client is not in a game");
-
-    return this.pubSubManager.subscribe(`game:${gameId}`, (message: string) => {
-      this.send(client, JSON.parse(message)); // send the message directly
-    });
-  }
-
   private async handleJoinGame(client: SocketClient, payload: any) {
-    const playerId = this.validateClient(client);
+    const playerId = client.playerId;
+    const existingGameId = client.gameId;
 
-    if (!playerId) return;
+    if (!playerId) {
+      this.sendError(client, "Bad request: unknown user");
+      return;
+    }
+
+    if (existingGameId) {
+      this.sendError(client, "Bad request: user is already part of a game");
+      return;
+    }
 
     // verify that the room size has not exceeded the max size
     const currentSize = await this.gameService.getRoomSize(playerId);
@@ -275,10 +277,28 @@ export class CommunicationService {
     await this.subscribeToGame(client);
   }
 
-  private async handleChangeUsername(client: SocketClient, payload: any) {
-    const playerId = this.validateClient(client);
+  /**
+   * Verifies if a client is a registered player and is part of a game
+   * @param client - The WebSocket client to verify
+   * @returns void - Sends error messages to the client if validation fails
+   */
+  private verifySocket(client: SocketClient) {
+    if (!client.playerId) {
+      this.sendError(client, "Bad request: unknown user");
+      return;
+    }
 
-    if (!playerId) return;
+    if (!client.gameId) {
+      this.sendError(client, "Bad request: user is not a part of any game");
+      return;
+    }
+  }
+
+  private async handleChangeUsername(client: SocketClient, payload: any) {
+    // verify that this client is valid
+    this.verifySocket(client);
+
+    const playerId = client.playerId!;
 
     const { newUsername } = payload;
 
@@ -301,11 +321,9 @@ export class CommunicationService {
   }
 
   private async handleStartGame(client: SocketClient, payload: any) {
-    const playerId = this.validateClient(client);
+    this.verifySocket(client);
 
-    if (!playerId) return;
-
-    const { gameId } = payload;
+    const gameId = client.gameId!;
 
     // check that the game has atleast MIN_SIZE players
     const size = await this.gameService.getRoomSize(gameId);
