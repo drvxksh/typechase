@@ -25,17 +25,17 @@
   - time
 
 ### Workflow
-1. *user visits the frontend*: server gets a connection request, if it gets a userid, check for existing user, send back the past games if this is an existing user, if he was part of a game in the waiting/starting state, get him in sync, if the game is already being played, let the new user spectate. or else create a player instance, store it in the redis and send back the playerId
-2. *user creates a game*: initialize the game object, store in redis, update the gameId of the player object and send back the gameId. Listen to that game:gameid and broadcast the changes. the changes will have an event and a payload with the info required to be shared.
-3. *user joins a game*: validate the max room size, update the game object, and the player object send back the players state i.e. their ids and names, consdiering the current new user, publish the new userid and name to others and subscribe to the gam for further updates.
-4. *user changes name*: update the player object, publish the new name and user id to the gameRoom.
-5. *starts the game*: validate the min room size, update the state of the gameRoom, start the countdown and broadcast it, then change the state of the room again to `playing`.
-6. *update the positions*: the frontend sends in the wpm, position and accuracy. the server publishes the positions to the gameRoom.
-7. *a user finishes the race*: calculate the final wpm, position and accuracy, store in the game results, update the player object with his stats.
-8. *all the users finish the race*: when the roomSize is equal to the size of the gameResults players, this means that the race is over, change the status of the room to finished, publish the game results by sending in the gameResults object. what if the user refreshes on the results page? how will he see the results again?
-9. *hitting on restart the game*: how will this be implemented?
-10. *ending the game*: clears the game object from the redis store.
-11. *the home page will show the past races of the user if this is an old one*: fetch data from the player object and show the past races, positions, etc.
+- [X] *user visits the frontend*: server gets a connection request, if it gets a userid, check for existing user, send back the past games if this is an existing user, if he was part of a game in the waiting/starting state, get him in sync, if the game is already being played, let the new user spectate. or else create a player instance, store it in the redis and send back the playerId
+- [X] *user creates a game*: initialize the game object, store in redis, update the gameId of the player object and send back the gameId. Listen to that game:gameid and broadcast the changes. the changes will have an event and a payload with the info required to be shared.
+- [X] *user joins a game*: validate the max room size, update the game object, and the player object send back the players state i.e. their ids and names, consdiering the current new user, publish the new userid and name to others and subscribe to the gam for further updates.
+- [X] *user changes name*: update the player object, publish the new name and user id to the gameRoom.
+- [X] *starts the game*: validate the min room size, update the state of the gameRoom, start the countdown and broadcast it, then change the state of the room again to `playing`.
+- [X] *update the positions*: the frontend sends in the wpm, position and accuracy. the server publishes the positions to the gameRoom.
+- [ ] *a user finishes the race*: calculate the final wpm, position and accuracy, store in the game results, update the player object with his stats.
+- [ ] *all the users finish the race*: when the roomSize is equal to the size of the gameResults players, this means that the race is over, change the status of the room to finished, publish the game results by sending in the gameResults object. what if the user refreshes on the results page? how will he see the results again?
+- [ ] *hitting on restart the game*: how will this be implemented?
+- [ ] *ending the game*: clears the game object from the redis store.
+- [ ] *the home page will show the past races of the user if this is an old one*: fetch data from the player object and show the past races, positions, etc.
 
 > claude recomendations
 # Feedback on Your Multiplayer Typing Game Approach

@@ -8,7 +8,6 @@ import {
   MAX_SIZE,
   MessageEvent,
   MIN_SIZE,
-  Player,
   PlayerState,
   SocketClient,
   WebSocketMessage,
@@ -122,6 +121,9 @@ export class CommunicationService {
         break;
       case MessageEvent.START_GAME:
         this.handleStartGame(client, payload);
+        break;
+      case MessageEvent.PLAYER_UPDATE:
+        this.handleUpdatePosition(client, payload);
         break;
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
@@ -372,5 +374,36 @@ export class CommunicationService {
 
     // change the state to in progress
     await this.gameService.updateGameState(gameId, GameStatus.IN_PROGRESS);
+  }
+
+  /**
+   * Handles position updates from clients during a game
+   * @param client - The WebSocket client sending the position update
+   * @param payload - The message payload containing position, wpm and accuracy
+   * @returns A Promise that resolves when the position update is processed
+   */
+  private async handleUpdatePosition(client: SocketClient, payload: any) {
+    this.verifySocket(client);
+
+    const playerId = client.playerId;
+    const gameId = client.gameId;
+
+    // verify that the payload has the required fields
+    if (payload.position) {
+      this.sendError(client, "Incomplete request: new position not provided");
+      return;
+    }
+
+    // broadcast the position to others
+    await this.pubSubManager.publish(
+      `game:${gameId}`,
+      JSON.stringify({
+        event: BroadcastEvent.PLAYER_UPDATE,
+        payload: {
+          playerId,
+          position: payload.position,
+        },
+      }),
+    );
   }
 }
