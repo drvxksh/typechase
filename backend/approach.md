@@ -31,8 +31,8 @@
 - [X] *user changes name*: update the player object, publish the new name and user id to the gameRoom.
 - [X] *starts the game*: validate the min room size, update the state of the gameRoom, start the countdown and broadcast it, then change the state of the room again to `playing`.
 - [X] *update the positions*: the frontend sends in the wpm, position and accuracy. the server publishes the positions to the gameRoom.
-- [ ] *a user finishes the race*: calculate the final wpm, position and accuracy, store in the game results, update the player object with his stats.
-- [ ] *all the users finish the race*: when the roomSize is equal to the size of the gameResults players, this means that the race is over, change the status of the room to finished, publish the game results by sending in the gameResults object. what if the user refreshes on the results page? how will he see the results again?
+- [X] *a user finishes the race*: calculate the final wpm, position and accuracy, store in the game results, update the player object with his stats.
+- [X] *all the users finish the race*: when the roomSize is equal to the size of the gameResults players, this means that the race is over, change the status of the room to finished, publish the game results by sending in the gameResults object. what if the user refreshes on the results page? how will he see the results again?
 - [ ] *hitting on restart the game*: how will this be implemented?
 - [ ] *ending the game*: clears the game object from the redis store.
 - [ ] *the home page will show the past races of the user if this is an old one*: fetch data from the player object and show the past races, positions, etc.

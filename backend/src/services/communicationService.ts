@@ -123,7 +123,10 @@ export class CommunicationService {
         this.handleStartGame(client, payload);
         break;
       case MessageEvent.PLAYER_UPDATE:
-        this.handleUpdatePosition(client, payload);
+        this.handlePlayerUpdate(client, payload);
+        break;
+      case MessageEvent.FINISH_GAME:
+        this.handleFinishGame(client, payload);
         break;
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
@@ -382,7 +385,7 @@ export class CommunicationService {
    * @param payload - The message payload containing position, wpm and accuracy
    * @returns A Promise that resolves when the position update is processed
    */
-  private async handleUpdatePosition(client: SocketClient, payload: any) {
+  private async handlePlayerUpdate(client: SocketClient, payload: any) {
     this.verifySocket(client);
 
     const playerId = client.playerId;
@@ -405,5 +408,58 @@ export class CommunicationService {
         },
       }),
     );
+  }
+
+  /**
+   * Handles player updates during gameplay including position, WPM, and accuracy
+   * @param client - The WebSocket client sending the update
+   * @param payload - The message payload containing position, WPM and accuracy data
+   * @returns A Promise that resolves when the player update is processed
+   */
+  private async handleFinishGame(client: SocketClient, payload: any) {
+    this.verifySocket(client);
+
+    const playerId = client.playerId!;
+    const gameId = client.gameId!;
+
+    // verify the payload
+    if (
+      typeof (payload.wpm !== "number") ||
+      typeof payload.accuracy !== "number" ||
+      typeof payload.time !== "number"
+    ) {
+      this.sendError(
+        client,
+        "Incomplete request: payload is missing some items",
+      );
+      return;
+    }
+
+    const playerData = {
+      wpm: payload.wpm,
+      accuracy: payload.accuracy,
+      time: payload.time,
+    };
+
+    // save the data in the game
+    await this.gameService.finishGame(playerId, playerData, gameId);
+
+    // check if all the players have completed the game, send the result
+    const gameFinished = await this.gameService.checkGameFinished(gameId);
+
+    if (gameFinished) {
+      // broadcast the result
+      const gameResult = await this.gameService.getGameResult(gameId);
+
+      this.pubSubManager.publish(
+        `game:${gameId}`,
+        JSON.stringify({
+          event: BroadcastEvent.FINISH_GAME,
+          payload: {
+            results: gameResult.players,
+          },
+        }),
+      );
+    }
   }
 }

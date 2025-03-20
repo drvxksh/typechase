@@ -1,4 +1,11 @@
-import { Game, GameStatus, Player, PlayerState } from "../types";
+import {
+  FinishGamePayload,
+  Game,
+  GameResult,
+  GameStatus,
+  Player,
+  PlayerState,
+} from "../types";
 import { StorageService } from "./storageService";
 import { v4 as uuid } from "uuid";
 
@@ -103,7 +110,43 @@ export class GameService {
    * @param newState The new GameStatus to assign to the game
    * @returns A Promise that resolves when the game state has been successfully updated
    */
-  public async updateGameState(gameId: string, newState: GameStatus) {
+  public async updateGameState(
+    gameId: string,
+    newState: GameStatus,
+  ): Promise<void> {
     return this.storageService.updateGameState(gameId, newState);
+  }
+
+  /**
+   * Marks a game as finished for a player with the provided data
+   * @param playerId The unique identifier of the player who finished
+   * @param playerData The finish game data including WPM, accuracy, etc.
+   * @param gameId The unique identifier of the game
+   * @returns A Promise that resolves when the game has been marked as finished for the player
+   */
+  public finishGame(
+    playerId: string,
+    playerData: FinishGamePayload,
+    gameId: string,
+  ): Promise<void> {
+    return this.storageService.finishGame(playerId, playerData, gameId);
+  }
+
+  /**
+   * Checks if all players in a game have finished
+   * @param gameId The unique identifier of the game to check
+   * @returns A Promise resolving to a boolean indicating whether all players have finished the game
+   */
+  public checkGameFinished(gameId: string): Promise<boolean> {
+    return this.storageService.checkGameFinished(gameId);
+  }
+
+  /**
+   * Retrieves the final game results including player scores and statistics
+   * @param gameId The unique identifier of the game to get results for
+   * @returns A Promise resolving to a GameResult object containing player scores and performance data
+   */
+  public getGameResult(gameId: string): Promise<GameResult> {
+    return this.storageService.getGameResult(gameId);
   }
 }

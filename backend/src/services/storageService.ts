@@ -1,5 +1,12 @@
 import { createClient, RedisClientType } from "redis";
-import { Game, GameStatus, Player, PlayerState } from "../types";
+import {
+  FinishGamePayload,
+  Game,
+  GameResult,
+  GameStatus,
+  Player,
+  PlayerState,
+} from "../types";
 
 /**
  * Stores game/player info into redis for some persistence.
@@ -108,6 +115,49 @@ export class StorageService {
   }
 
   /**
+   * Retrieves a GameResult object from Redis storage by game ID.
+   * If no game result exists for the given ID, creates a new one.
+   *
+   * @param gameId - The unique identifier of the game result to retrieve.
+   * @returns A Promise that resolves to the GameResult object corresponding to the given ID.
+   */
+  private async getGameResultObj(gameId: string): Promise<GameResult> {
+    const gameResultExists = await this.redisClient.exists(`gameId:${gameId}`);
+
+    if (gameResultExists !== 1) {
+      // create the game object, save it and return
+      const gameResultObj: GameResult = {
+        id: gameId,
+        players: [],
+      };
+
+      await this.redisClient.json.set(`gameResult:${gameId}`, "$", {
+        ...gameResultObj,
+      });
+
+      return gameResultObj;
+    } else {
+      const gameResultObj = (await this.redisClient.json.get(
+        `gameResult:${gameId}`,
+      )) as unknown as GameResult;
+
+      return gameResultObj;
+    }
+  }
+
+  /**
+   * Saves a GameResult object to Redis storage.
+   *
+   * @param gameResultObj - The GameResult object to be saved.
+   * @returns A Promise that resolves when the game result is successfully saved.
+   */
+  private async saveGameResultObj(gameResultObj: GameResult): Promise<void> {
+    await this.redisClient.json.set(`gameResult:${gameResultObj.id}`, "$", {
+      ...gameResultObj,
+    });
+  }
+
+  /**
    * Checks if a player with the given ID exists in storage.
    *
    * @param userId - The unique identifier of the user to check.
@@ -172,7 +222,7 @@ export class StorageService {
       id: playerId,
       name: playerId.substring(0, 5),
       currentGameId: gameId,
-      gamesPlayed: [],
+      pastResults: [],
     };
 
     await this.savePlayerObj(playerId, newPlayer);
@@ -289,5 +339,66 @@ export class StorageService {
     game.status = newState;
 
     await this.saveGameObj(gameId, game);
+  }
+
+  /**
+   * Records a player's game completion data and the game result object.
+   *
+   * @param playerId - The unique identifier of the player who finished the game.
+   * @param playerData - The payload containing the player's performance metrics.
+   * @param gameId - The unique identifier of the completed game.
+   * @returns A Promise that resolves when the player's completion data has been successfully stored.
+   */
+  public async finishGame(
+    playerId: string,
+    playerData: FinishGamePayload,
+    gameId: string,
+  ): Promise<void> {
+    const gameResultObj = await this.getGameResultObj(gameId);
+
+    const playerObj = await this.getPlayerObj(playerId);
+
+    // save the info in the game result
+    gameResultObj.players.push({
+      id: playerObj.id,
+      name: playerObj.name,
+      wpm: playerData.wpm,
+      accuracy: playerData.accuracy,
+      time: playerData.time,
+      position: gameResultObj.players.length + 1,
+    });
+
+    await this.saveGameResultObj(gameResultObj);
+
+    // reflect this info in the player object
+    playerObj.pastResults.push({
+      id: gameId,
+    });
+
+    await this.savePlayerObj(playerId, playerObj);
+  }
+
+  /**
+   * Checks if all players in a game have finished playing.
+   *
+   * @param gameId - The unique identifier of the game to check.
+   * @returns A Promise that resolves to true if all players have finished, false otherwise.
+   * @throws Error if the game with the specified ID does not exist.
+   */
+  public async checkGameFinished(gameId: string): Promise<boolean> {
+    const gameObj = await this.getGameObj(gameId);
+    const gameResultObj = await this.getGameResultObj(gameId);
+
+    return gameObj.playerIds.length === gameResultObj.players.length;
+  }
+
+  /**
+   * Retrieves the game result data for a specific game.
+   *
+   * @param gameId - The unique identifier of the game to get results for.
+   * @returns A Promise that resolves to the GameResult object containing player performance data.
+   */
+  public async getGameResult(gameId: string): Promise<GameResult> {
+    return this.getGameResultObj(gameId);
   }
 }
