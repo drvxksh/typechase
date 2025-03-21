@@ -144,6 +144,7 @@ export class CommunicationService {
 
     if (playerId) {
       // this is a returning user
+      client.playerId = playerId;
     } else {
       // create a new user
       const newPlayerId = uuid();
@@ -161,18 +162,40 @@ export class CommunicationService {
   }
 
   /**
+   * Verifies if a client is a registered player and is part of a game
+   * @param client - The WebSocket client to verify
+   * @returns void - Sends error messages to the client if validation fails
+   */
+  private verifySocket(client: SocketClient): boolean {
+    if (!client.playerId) {
+      this.sendError(client, "Bad request: unknown user");
+      return false;
+    }
+
+    if (!client.gameId) {
+      this.sendError(client, "Bad request: user is not a part of any game");
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
    * Subscribes a client to game updates via Redis PubSub
    * @param client - The WebSocket client to subscribe
    * @throws Error if the client is not associated with a game
    * @returns A Promise that resolves when subscription is complete
    */
-  private subscribeToGame(client: SocketClient): Promise<void> {
+  private async subscribeToGame(client: SocketClient): Promise<void> {
     // checks that the socket is a valid player.
-    this.verifySocket(client);
+    if (!this.verifySocket(client)) {
+      return;
+    }
 
-    const gameId = client.gameId;
+    const gameId = client.gameId!;
+    const playerId = client.playerId!;
 
-    return this.pubSubManager.subscribe(`game:${gameId}`, (message: string) => {
+    await this.pubSubManager.subscribe(`game:${gameId}`, (message: string) => {
       this.send(client, JSON.parse(message)); // send the message directly
     });
   }
@@ -201,25 +224,33 @@ export class CommunicationService {
       return;
     }
 
-    const newGameId = await this.gameService.createGame(playerId);
+    try {
+      const newGameId = await this.gameService.createGame(playerId);
 
-    client.gameId = newGameId;
+      client.gameId = newGameId;
 
-    await this.subscribeToGame(client);
+      await this.subscribeToGame(client);
 
-    const hostPlayer = await this.gameService.getPlayerState(playerId);
+      const hostPlayer = await this.gameService.getPlayerState(playerId);
 
-    this.send(client, {
-      event: MessageEvent.CREATE_GAME,
-      payload: {
-        success: true,
-        gameId: newGameId,
-        hostPlayer,
-      },
-    });
+      this.send(client, {
+        event: MessageEvent.CREATE_GAME,
+        payload: {
+          success: true,
+          gameId: newGameId,
+          hostPlayer,
+        },
+      });
+    } catch (err) {
+      console.error("Error creating game:", err);
+      this.sendError(client, "Failed to create game");
+    }
   }
 
-  private async handleJoinGame(client: SocketClient, payload: any) {
+  private async handleJoinGame(
+    client: SocketClient,
+    payload: any,
+  ): Promise<void> {
     const playerId = client.playerId;
     const existingGameId = client.gameId;
 
@@ -233,14 +264,6 @@ export class CommunicationService {
       return;
     }
 
-    // verify that the room size has not exceeded the max size
-    const currentSize = await this.gameService.getRoomSize(playerId);
-
-    if (currentSize > MAX_SIZE) {
-      this.sendError(client, "Room is full. Try another game.");
-      return;
-    }
-
     // extract the gameId from the payload
     const { gameId } = payload;
 
@@ -249,134 +272,161 @@ export class CommunicationService {
       return;
     }
 
-    // add the current player to that gameRoom
-    await this.gameService.addPlayer(playerId, gameId);
+    try {
+      // verify that the room size has not exceeded the max size
+      const currentSize = await this.gameService.getRoomSize(playerId);
 
-    // send back the currentPlayer state to this client
-    const allPlayers: PlayerState[] =
-      await this.gameService.getAllPlayers(gameId);
-
-    this.send(client, {
-      event: MessageEvent.JOIN_GAME,
-      payload: {
-        success: true,
-        allPlayers,
-      },
-    });
-
-    // publish to others of this new player
-    const newPlayerState: PlayerState =
-      await this.gameService.getPlayerState(playerId);
-
-    await this.pubSubManager.publish(
-      `game:{gameId}`,
-      JSON.stringify({
-        event: BroadcastEvent.NEW_PLAYER_JOINED,
-        payload: {
-          newPlayerState,
-        },
-      }),
-    );
-
-    // subscribe this user to the gameRoom
-    await this.subscribeToGame(client);
-  }
-
-  /**
-   * Verifies if a client is a registered player and is part of a game
-   * @param client - The WebSocket client to verify
-   * @returns void - Sends error messages to the client if validation fails
-   */
-  private verifySocket(client: SocketClient) {
-    if (!client.playerId) {
-      this.sendError(client, "Bad request: unknown user");
-      return;
-    }
-
-    if (!client.gameId) {
-      this.sendError(client, "Bad request: user is not a part of any game");
-      return;
-    }
-  }
-
-  private async handleChangeUsername(client: SocketClient, payload: any) {
-    // verify that this client is valid
-    this.verifySocket(client);
-
-    const playerId = client.playerId!;
-
-    const { newUsername } = payload;
-
-    // update the newUsername in the redis object
-    await this.gameService.changeUsername(playerId, newUsername);
-
-    // publish the event to others
-    await this.pubSubManager.publish(
-      `game:${client.gameId}`,
-      JSON.stringify({
-        event: BroadcastEvent.USERNAME_CHANGED,
-        payload: {
-          updatedPlayer: {
-            playerId,
-            playerName: newUsername,
-          },
-        },
-      }),
-    );
-  }
-
-  private async handleStartGame(client: SocketClient, payload: any) {
-    this.verifySocket(client);
-
-    const gameId = client.gameId!;
-
-    // check that the game has atleast MIN_SIZE players
-    const size = await this.gameService.getRoomSize(gameId);
-
-    if (size < MIN_SIZE) {
-      this.sendError(client, "Not enought players to start the game");
-      return;
-    }
-
-    // update the state of the room
-    await this.gameService.updateGameState(gameId, GameStatus.STARTING);
-
-    // start the countdown and broadcast
-    let countdownTimer: NodeJS.Timeout;
-    let count = 10;
-
-    countdownTimer = setTimeout(async () => {
-      if (count < 0) {
-        await this.pubSubManager.publish(
-          `game:${gameId}`,
-          JSON.stringify({
-            event: BroadcastEvent.GAME_STARTED,
-            payload: {
-              message: "Game started!",
-            },
-          }),
-        );
-
-        await this.gameService.updateGameState(gameId, GameStatus.IN_PROGRESS);
-        clearTimeout(countdownTimer);
+      if (currentSize > MAX_SIZE) {
+        this.sendError(client, "Room is full. Try another game.");
+        return;
       }
+
+      await this.gameService.addPlayer(playerId, gameId);
+
+      // store the gameId on the client
+      client.gameId = gameId;
+      // send back the currentPlayer state to this client
+      const allPlayers: PlayerState[] =
+        await this.gameService.getAllPlayers(gameId);
+
+      this.send(client, {
+        event: MessageEvent.JOIN_GAME,
+        payload: {
+          success: true,
+          allPlayers,
+        },
+      });
+
+      // publish to others of this new player
+      const newPlayerState: PlayerState =
+        await this.gameService.getPlayerState(playerId);
 
       await this.pubSubManager.publish(
         `game:${gameId}`,
         JSON.stringify({
-          event: BroadcastEvent.GAME_STARTING,
+          event: BroadcastEvent.NEW_PLAYER_JOINED,
           payload: {
-            count,
-            message: count === 0 ? "Go!" : `Starting in ${count}...`,
+            newPlayerState,
           },
         }),
       );
 
-      count--;
-    }, 1000);
+      // subscribe this user to the gameRoom
+      await this.subscribeToGame(client);
+    } catch (err) {
+      console.error("Error joining game:", err);
+      this.sendError(client, "Failed to join game");
+    }
+  }
 
-    // change the state to in progress
-    await this.gameService.updateGameState(gameId, GameStatus.IN_PROGRESS);
+  private async handleChangeUsername(
+    client: SocketClient,
+    payload: any,
+  ): Promise<void> {
+    // verify that this client is valid
+    if (!this.verifySocket(client)) {
+      return;
+    }
+
+    const playerId = client.playerId!;
+    const { newUsername } = payload;
+
+    if (!newUsername) {
+      this.sendError(client, "Bad request: newUsername is required");
+      return;
+    }
+
+    try {
+      // update the newUsername in the redis object
+      await this.gameService.changeUsername(playerId, newUsername);
+
+      // publish the event to others
+      await this.pubSubManager.publish(
+        `game:${client.gameId}`,
+        JSON.stringify({
+          event: BroadcastEvent.USERNAME_CHANGED,
+          payload: {
+            updatedPlayer: {
+              playerId,
+              playerName: newUsername,
+            },
+          },
+        }),
+      );
+    } catch (err) {
+      console.error("Error changing username:", err);
+      this.sendError(client, "Failed to change username");
+    }
+  }
+
+  private async handleStartGame(
+    client: SocketClient,
+    payload: any,
+  ): Promise<void> {
+    if (!this.verifySocket(client)) {
+      return;
+    }
+
+    const gameId = client.gameId!;
+    const playerId = client.playerId!;
+
+    try {
+      // check that the game has atleast MIN_SIZE players
+      const size = await this.gameService.getRoomSize(gameId);
+
+      if (size < MIN_SIZE) {
+        this.sendError(client, "Not enough players to start the game");
+        return;
+      }
+
+      // update the state of the room
+      await this.gameService.updateGameState(gameId, GameStatus.STARTING);
+
+      // start the countdown and broadcast
+      let count = 10;
+
+      // Using setInterval for proper countdown
+      const countdownInterval = setInterval(async () => {
+        // Send current count
+        await this.pubSubManager.publish(
+          `game:${gameId}`,
+          JSON.stringify({
+            event: BroadcastEvent.GAME_STARTING,
+            payload: {
+              count,
+              message: count === 0 ? "Go!" : `Starting in ${count}...`,
+            },
+          }),
+        );
+
+        // Decrement count
+        count--;
+
+        // Check if countdown is complete
+        if (count < 0) {
+          clearInterval(countdownInterval);
+
+          // Game starts
+          await this.pubSubManager.publish(
+            `game:${gameId}`,
+            JSON.stringify({
+              event: BroadcastEvent.GAME_STARTED,
+              payload: {
+                message: "Game started!",
+              },
+            }),
+          );
+
+          await this.gameService.updateGameState(
+            gameId,
+            GameStatus.IN_PROGRESS,
+          );
+        }
+      }, 1000);
+    } catch (err) {
+      console.error("Error starting game:", err);
+      this.sendError(client, "Failed to start the game");
+    }
   }
 
   /**
@@ -385,14 +435,19 @@ export class CommunicationService {
    * @param payload - The message payload containing position, wpm and accuracy
    * @returns A Promise that resolves when the position update is processed
    */
-  private async handlePlayerUpdate(client: SocketClient, payload: any) {
-    this.verifySocket(client);
+  private async handlePlayerUpdate(
+    client: SocketClient,
+    payload: any,
+  ): Promise<void> {
+    if (!this.verifySocket(client)) {
+      return;
+    }
 
     const playerId = client.playerId;
     const gameId = client.gameId;
 
     // verify that the payload has the required fields
-    if (payload.position) {
+    if (!payload.position && payload.position !== 0) {
       this.sendError(client, "Incomplete request: new position not provided");
       return;
     }
@@ -416,50 +471,60 @@ export class CommunicationService {
    * @param payload - The message payload containing position, WPM and accuracy data
    * @returns A Promise that resolves when the player update is processed
    */
-  private async handleFinishGame(client: SocketClient, payload: any) {
-    this.verifySocket(client);
+  private async handleFinishGame(
+    client: SocketClient,
+    payload: any,
+  ): Promise<void> {
+    if (!this.verifySocket(client)) {
+      return;
+    }
 
     const playerId = client.playerId!;
     const gameId = client.gameId!;
 
     // verify the payload
     if (
-      typeof (payload.wpm !== "number") ||
+      typeof payload.wpm !== "number" ||
       typeof payload.accuracy !== "number" ||
       typeof payload.time !== "number"
     ) {
       this.sendError(
         client,
-        "Incomplete request: payload is missing some items",
+        "Incomplete request: payload is missing or has invalid wpm, accuracy, or time",
       );
       return;
     }
 
-    const playerData = {
-      wpm: payload.wpm,
-      accuracy: payload.accuracy,
-      time: payload.time,
-    };
+    try {
+      const playerData = {
+        wpm: payload.wpm,
+        accuracy: payload.accuracy,
+        time: payload.time,
+      };
 
-    // save the data in the game
-    await this.gameService.finishGame(playerId, playerData, gameId);
+      // save the data in the game
+      await this.gameService.finishGame(playerId, playerData, gameId);
 
-    // check if all the players have completed the game, send the result
-    const gameFinished = await this.gameService.checkGameFinished(gameId);
+      // check if all the players have completed the game, send the result
+      const gameFinished = await this.gameService.checkGameFinished(gameId);
 
-    if (gameFinished) {
-      // broadcast the result
-      const gameResult = await this.gameService.getGameResult(gameId);
+      if (gameFinished) {
+        // broadcast the result
+        const gameResult = await this.gameService.getGameResult(gameId);
 
-      this.pubSubManager.publish(
-        `game:${gameId}`,
-        JSON.stringify({
-          event: BroadcastEvent.FINISH_GAME,
-          payload: {
-            results: gameResult.players,
-          },
-        }),
-      );
+        await this.pubSubManager.publish(
+          `game:${gameId}`,
+          JSON.stringify({
+            event: BroadcastEvent.FINISH_GAME,
+            payload: {
+              results: gameResult.players,
+            },
+          }),
+        );
+      }
+    } catch (err) {
+      console.error("Error finishing game:", err);
+      this.sendError(client, "Failed to record game results");
     }
   }
 }

@@ -28,6 +28,7 @@ export enum BroadcastEvent {
   "GAME_STARTED" = "game_start",
   "PLAYER_UPDATE" = "player_update",
   "FINISH_GAME" = "finish_game",
+  "PLAYER_LEFT" = "player_left",
 }
 
 export interface BroadcastMessage {
