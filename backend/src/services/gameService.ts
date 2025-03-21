@@ -3,7 +3,6 @@ import {
   Game,
   GameResult,
   GameStatus,
-  Player,
   PlayerState,
 } from "../types";
 import { StorageService } from "./storageService";
@@ -49,6 +48,7 @@ export class GameService {
    * Gets the number of players in a specific game
    * @param gameId The unique identifier of the room
    * @returns A Promise resolving to the number of players in the room
+   * @throws Error if the specified game with that id does not exist
    */
   public async getRoomSize(gameId: string): Promise<number> {
     return this.storageService.getRoomSize(gameId);
@@ -59,6 +59,7 @@ export class GameService {
    * @param playerId The unique identifier of the player to add
    * @param gameId The unique identifier of the game to add the player to
    * @returns A Promise that resolves when the player has been added to the game
+   * @throws Error if the specified player or game with that id does not exist
    */
   public async addPlayer(playerId: string, gameId: string): Promise<void> {
     // check if this user exists in the store, if it does then we have to update its currentGameId
@@ -77,6 +78,7 @@ export class GameService {
    * Retrieves the player states (IDs and names) for all players in a game
    * @param gameId The unique identifier of the game
    * @returns A Promise resolving to an array of PlayerState objects containing player IDs and names
+   * @throws Error if the specified game with that id does not exist
    */
   public async getAllPlayers(gameId: string): Promise<PlayerState[]> {
     return this.storageService.getAllPlayers(gameId);
@@ -86,6 +88,7 @@ export class GameService {
    * Retrieves the player state(ID and name) for the required player
    * @param playerId The unique identifier of the player
    * @returns A Promise resolving to an array of PlayerState objects containing player IDs and names
+   * @throws Error if the specified player with that id does not exist
    */
   public async getPlayerState(playerId: string): Promise<PlayerState> {
     return this.storageService.getPlayerState(playerId);
@@ -96,6 +99,7 @@ export class GameService {
    * @param playerId The unique identifier of the player whose username will be changed
    * @param newUsername The new username to assign to the player
    * @returns A Promise that resolves when the username has been successfully updated
+   * @throws Error if the specified player with that id does not exist
    */
   public async changeUsername(
     playerId: string,
@@ -109,6 +113,7 @@ export class GameService {
    * @param gameId The unique identifier of the game to update
    * @param newState The new GameStatus to assign to the game
    * @returns A Promise that resolves when the game state has been successfully updated
+   * @throws Error if the specified game with that id does not exist
    */
   public async updateGameState(
     gameId: string,
@@ -123,6 +128,7 @@ export class GameService {
    * @param playerData The finish game data including WPM, accuracy, etc.
    * @param gameId The unique identifier of the game
    * @returns A Promise that resolves when the game has been marked as finished for the player
+   * @throws Error if the specified game with that id does not exist
    */
   public finishGame(
     playerId: string,
@@ -136,6 +142,7 @@ export class GameService {
    * Checks if all players in a game have finished
    * @param gameId The unique identifier of the game to check
    * @returns A Promise resolving to a boolean indicating whether all players have finished the game
+   * @throws Error if the specified game with that id does not exist
    */
   public checkGameFinished(gameId: string): Promise<boolean> {
     return this.storageService.checkGameFinished(gameId);
@@ -145,6 +152,7 @@ export class GameService {
    * Retrieves the final game results including player scores and statistics
    * @param gameId The unique identifier of the game to get results for
    * @returns A Promise resolving to a GameResult object containing player scores and performance data
+   * @throws Error if the specified game with that id does not exist
    */
   public getGameResult(gameId: string): Promise<GameResult> {
     return this.storageService.getGameResult(gameId);
