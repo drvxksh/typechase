@@ -10,3 +10,11 @@
   --font-roboto: Roboto, sans-serif;
   --font-courier: Courier Prime, monospace;
 }
+
+.blue-gradient-btn {
+  @apply bg-gradient-to-b from-blue-500 to-blue-800;
+}
+
+.blue-gradient-text {
+  @apply bg-gradient-to-b from-blue-500 to-blue-900;
+}

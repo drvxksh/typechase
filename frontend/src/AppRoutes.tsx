@@ -2,7 +2,7 @@ import { Link, Route, Routes } from "react-router";
 import { BrowserRouter } from "react-router";
 import Landing from "./Pages/Landing";
 
-function App() {
+export default function AppRoutes() {
   return (
     <main className="flex h-screen w-screen flex-col">
       <BrowserRouter>
@@ -27,5 +27,3 @@ function Navbar() {
     </nav>
   );
 }
-
-export default App;
