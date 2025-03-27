@@ -1,16 +1,15 @@
 import { Link, Route, Routes } from "react-router";
-import { BrowserRouter } from "react-router";
 import Landing from "./Pages/Landing";
+import { Toaster } from "sonner";
 
 export default function AppRoutes() {
   return (
     <main className="flex h-screen w-screen flex-col">
-      <BrowserRouter>
-        <Navbar />
-        <Routes>
-          <Route path="/" Component={Landing} />
-        </Routes>
-      </BrowserRouter>
+      <Toaster richColors={true} />
+      <Navbar />
+      <Routes>
+        <Route path="/" Component={Landing} />
+      </Routes>
     </main>
   );
 }
