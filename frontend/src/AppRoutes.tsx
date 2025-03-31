@@ -19,7 +19,7 @@ function Navbar() {
     <nav className="h-[3rem] px-2 py-1">
       <Link
         to="/"
-        className="font-courier text-xl font-bold text-zinc-800 sm:text-2xl"
+        className="font-courier pointer-cursor text-xl font-bold text-zinc-800 sm:text-2xl"
       >
         Type<span className="text-blue-600">chase</span>
       </Link>

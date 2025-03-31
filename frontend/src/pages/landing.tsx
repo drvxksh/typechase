@@ -21,13 +21,13 @@ export default function Landing() {
             <input
               type="text"
               name="gameId"
-              placeholder="enter the invite code"
-              className="w-full rounded-md border-2 border-zinc-200 px-3 py-2 text-xs text-zinc-700 transition-colors duration-300 focus:border-blue-600 focus:outline-none"
+              placeholder="Join with a code"
+              className="w-full rounded-md border-2 border-zinc-200 px-3 py-2 text-xs text-zinc-700 transition-colors duration-200 focus:border-blue-600 focus:outline-none sm:text-sm"
             />
           </form>
           <p className="text-center text-xs italic">or</p>
-          <button className="blue-gradient-btn w-[60vw] max-w-md cursor-pointer rounded-md px-3 py-2 text-xs text-white transition-transform duration-300 hover:scale-105 sm:text-sm">
-            Create Room
+          <button className="blue-gradient-btn w-[60vw] max-w-md cursor-pointer rounded-md px-3 py-2 text-xs text-white transition-transform duration-200 hover:scale-105 hover:shadow-lg sm:text-sm">
+            New Game
           </button>
         </div>
       </section>
