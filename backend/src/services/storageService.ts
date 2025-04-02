@@ -67,6 +67,21 @@ export class StorageService {
   }
 
   /**
+   * Removes the game object from the storage
+   * @param gameId
+   * @throws Error if the specified game with that id does not exist
+   */
+  private async deleteGameObj(gameId: string): Promise<void> {
+    const gameObjExists = await this.redisClient.exists(`game:${gameId}`);
+
+    if (gameObjExists !== 1) {
+      throw new Error(`Room with ID ${gameId} does not exist`);
+    }
+
+    await this.redisClient.json.del(`game:${gameId}`);
+  }
+
+  /**
    * Gets a player object from Redis storage by player ID.
    *
    * @param playerId - The unique identifier of the player to retrieve.
@@ -98,6 +113,21 @@ export class StorageService {
     await this.redisClient.json.set(`player:${playerObj.id}`, "$", {
       ...playerObj,
     });
+  }
+
+  /**
+   * Removes the player object from the storage
+   * @param playerId
+   * @throws Error if the specified player with that id does not exist
+   */
+  private async deletePlayerObj(playerId: string): Promise<void> {
+    const playerExists = await this.redisClient.exists(`player:${playerId}`);
+
+    if (playerExists !== 1) {
+      throw new Error(`Player with ID ${playerId} does not exist`);
+    }
+
+    await this.redisClient.json.del(`player:${playerId}`);
   }
 
   /**
@@ -140,6 +170,109 @@ export class StorageService {
     await this.redisClient.json.set(`gameResult:${gameResultObj.id}`, "$", {
       ...gameResultObj,
     });
+  }
+
+  /**
+   * Retrieves the gameId that this player is a part of
+   * @param playerId
+   * @returns game id that the user is a part of, null otherwise
+   * @throws Error if the given playerId does not exist
+   */
+  public async getPlayerGameId(playerId: string): Promise<string | null> {
+    const playerObj = await this.getPlayerObj(playerId);
+
+    return playerObj.currentGameId;
+  }
+
+  /**
+   * Retrieves the game state of the given gameId
+   * @param gameId
+   * @returns GameStatus of the game
+   * @throws Error if a game with that ID does not exist
+   */
+  public async getGameState(gameId: string): Promise<GameStatus> {
+    const gameObj = await this.getGameObj(gameId);
+
+    return gameObj.status;
+  }
+
+  /**
+   * Removes the player from the game object
+   * @param playerId
+   * @param gameId
+   * @returns a promise when the player has been removed
+   * @throws Error if the given gameId does not exist
+   */
+  public async removePlayerFromGame(
+    playerId: string,
+    gameId: string,
+  ): Promise<void> {
+    const gameObj = await this.getGameObj(gameId);
+
+    // If this player was the host and there were no players, delete the Game
+    if (gameObj.hostId === playerId && gameObj.playerIds.length === 1) {
+      await this.deleteGameObj(gameId);
+    } else if (gameObj.hostId === playerId) {
+      // otherwise make someone else the host
+      gameObj.playerIds = gameObj.playerIds.filter((id) => id !== playerId);
+      gameObj.hostId = gameObj.playerIds[0];
+    } else {
+      // else just remove the player
+      gameObj.playerIds = gameObj.playerIds.filter((id) => id !== playerId);
+    }
+
+    await this.saveGameObj(gameObj);
+  }
+
+  /**
+   * Changes the player state to offline
+   * @param playerId
+   * @throws Error if the given playerId does not exist
+   */
+  public async markPlayerOffline(playerId: string): Promise<void> {
+    const playerObj = await this.getPlayerObj(playerId);
+
+    playerObj.currentGameId = null;
+    playerObj.state = "offline";
+
+    await this.savePlayerObj(playerObj);
+  }
+
+  /**
+   * Retrieves the player state of the specified player
+   * @param playerId
+   * @returns "offline" or "online" depending on the state of the player
+   * @throws Error if the given playerId does not exist
+   */
+  public async getPlayerStatus(
+    playerId: string,
+  ): Promise<"offline" | "online"> {
+    const playerObj = await this.getPlayerObj(playerId);
+
+    return playerObj.state;
+  }
+
+  /**
+   * Removes the player from storage
+   * @param playerId
+   * @returns a promise when the player is successfully deleted
+   * @throws Error if the given playerId does not exist
+   */
+  public async removePlayer(playerId: string): Promise<void> {
+    return this.deletePlayerObj(playerId);
+  }
+
+  /**
+   * Marks the player status to online
+   * @param playerId
+   * @throws Error if the given playerId does not exist
+   */
+  public async markPlayerOnline(playerId: string): Promise<void> {
+    const playerObj = await this.getPlayerObj(playerId);
+
+    playerObj.state = "online";
+
+    await this.savePlayerObj(playerObj);
   }
 
   /**
@@ -202,6 +335,7 @@ export class StorageService {
       id: playerId,
       name: playerId.substring(0, 5),
       currentGameId: gameId,
+      state: "online",
       pastResults: [],
     };
 

@@ -47,16 +47,17 @@ export class CommunicationService {
         this.sendError(socketClient, "Something went wrong");
       });
 
-      ws.on("close", () => {
+      ws.on("close", async () => {
         console.log("Client disconnected");
+        await this.handleDisconnection(socketClient);
       });
 
-      ws.on("message", (message: string) => {
+      ws.on("message", async (message: string) => {
         // this project has a convention that the messages will be relayed in JSON only
         try {
           const data = JSON.parse(message);
 
-          this.processMessage(socketClient, data);
+          await this.processMessage(socketClient, data);
         } catch (err) {
           console.error("Unknown message format:", err);
 
@@ -89,10 +90,10 @@ export class CommunicationService {
     }
   }
 
-  private processMessage(
+  private async processMessage(
     client: SocketClient,
     message: WebSocketMessage,
-  ): void {
+  ): Promise<void> {
     // checking if all the fields are present
     if (!message || !message.event || !message.payload) {
       const missingField = !message
@@ -108,7 +109,7 @@ export class CommunicationService {
 
     switch (event) {
       case MessageEvent.CONNECT:
-        this.handleConnect(client, payload);
+        await this.handleConnect(client, payload);
         break;
       case MessageEvent.CREATE_GAME:
         this.handleCreateGame(client, payload);
@@ -135,16 +136,64 @@ export class CommunicationService {
   }
 
   /**
+   * Handles player disconnection from a game
+   * @param client - The WebSocket client that disconnected
+   * @returns A Promise that resolves when the disconnection has been processed
+   */
+  private async handleDisconnection(client: SocketClient): Promise<void> {
+    const playerId = client.playerId;
+    const gameId = client.gameId;
+
+    if (!playerId || !gameId) return;
+
+    // remove the player from the Game
+    await this.gameService.removePlayerFromGame(playerId, gameId);
+
+    // mark this player offline
+    await this.gameService.markPlayerOffline(playerId);
+
+    // remove the player if it has been away for an extended time
+    setTimeout(async () => {
+      const playerStatus: "online" | "offline" =
+        await this.gameService.getPlayerStatus(playerId);
+
+      if (playerStatus === "offline") {
+        await this.gameService.removePlayer(playerId);
+      }
+    }, 60000);
+  }
+
+  /**
    * Handles connection requests from clients
    * @param client - The WebSocket client
    * @param payload - The message payload containing optional playerId
    */
-  private handleConnect(client: SocketClient, payload: any): void {
+  private async handleConnect(
+    client: SocketClient,
+    payload: any,
+  ): Promise<void> {
     const { playerId } = payload;
+    let existingGameId = null;
 
     if (playerId) {
-      // this is a returning user
+      // Returning user
       client.playerId = playerId;
+
+      // mark the player as online
+      await this.gameService.markPlayerOnline(playerId);
+
+      // Check if this user was part of a Game
+      const gameId = await this.gameService.getPlayerGameId(playerId);
+
+      if (gameId) {
+        client.gameId = gameId;
+
+        // What is the state of the Game
+        const state = await this.gameService.getGameState(gameId);
+
+        // Send the user to the waiting screen as the game has not yet started.
+        if (state === "waiting") existingGameId = gameId;
+      }
     } else {
       // create a new user
       const newPlayerId = uuid();
@@ -156,6 +205,7 @@ export class CommunicationService {
       event: MessageEvent.CONNECT,
       payload: {
         playerId: client.playerId,
+        existingGameId,
         success: true,
       },
     });

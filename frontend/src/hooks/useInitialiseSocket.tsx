@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ConnectionStatus } from "../types";
+import { useNavigate } from "react-router";
 
 /**
  * Custom hook to initialize and manage a WebSocket connection
@@ -12,6 +13,8 @@ export default function useInitialiseSocket(): [
 ] {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
+
+  const navigator = useNavigate();
 
   useEffect(() => {
     // create local variables so that we don't include them in the dependency array
@@ -53,6 +56,11 @@ export default function useInitialiseSocket(): [
       if (data.type == "connect" && data.payload.success === true) {
         const playerId = data.payload.playerId;
         localStorage.setItem("playerId", playerId);
+      }
+
+      // navigate the user to the game page if required
+      if (data.payload.existingGameId) {
+        navigator(`/game/${data.payload.existingGameId}`);
       }
     };
 

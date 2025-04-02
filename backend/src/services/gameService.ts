@@ -3,6 +3,7 @@ import {
   Game,
   GameResult,
   GameStatus,
+  Player,
   PlayerState,
 } from "../types";
 import { StorageService } from "./storageService";
@@ -16,6 +17,69 @@ export class GameService {
 
   public constructor() {
     this.storageService = StorageService.getInstance();
+  }
+
+  public async getPlayerGameId(playerId: string): Promise<string | null> {
+    return this.storageService.getPlayerGameId(playerId);
+  }
+
+  public async getGameState(gameId: string): Promise<GameStatus> {
+    return this.storageService.getGameState(gameId);
+  }
+
+  /**
+   * Removes the given player from the given game
+   * @param playerId
+   * @param gameId
+   * @returns a promise when the player has been successfully removed
+   */
+  public async removePlayerFromGame(
+    playerId: string,
+    gameId: string,
+  ): Promise<void> {
+    await this.storageService.removePlayerFromGame(playerId, gameId);
+  }
+
+  /**
+   * Marks the given player as offline
+   * @param playerId
+   * @returns a promise that is resolved when the player has been successfully marked offline
+   * @throws Error if the player is not found
+   */
+  public async markPlayerOffline(playerId: string): Promise<void> {
+    return this.storageService.markPlayerOffline(playerId);
+  }
+
+  /**
+   * Returns the status of the given player
+   * @param playerId
+   * @returns "offline" or "online" based on the state of the player
+   * @throws Error if the player is not found
+   */
+  public async getPlayerStatus(
+    playerId: string,
+  ): Promise<"offline" | "online"> {
+    return this.storageService.getPlayerStatus(playerId);
+  }
+
+  /**
+   * Removes the given player from the system
+   * @param playerId
+   * @returns a promise that is resolved when the player has been successfully removed
+   * @throws Error if the player is not found
+   */
+  public async removePlayer(playerId: string): Promise<void> {
+    return this.storageService.removePlayer(playerId);
+  }
+
+  /**
+   * Marks the given player as online
+   * @param playerId
+   * @returns a promise that is resolved when the player has been successfully removed
+   * @throws Error if the player is not found
+   */
+  public async markPlayerOnline(playerId: string): Promise<void> {
+    return this.storageService.markPlayerOnline(playerId);
   }
 
   /**

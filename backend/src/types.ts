@@ -40,6 +40,7 @@ export interface Player {
   id: string;
   name: string;
   currentGameId: string | null;
+  state: "online" | "offline";
   pastResults: {
     id: string;
   }[];
