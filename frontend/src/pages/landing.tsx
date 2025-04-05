@@ -2,11 +2,25 @@ import { useRef } from "react";
 import { useWebSocket } from "../hooks/useWebSocket";
 import backgroundImage from "/hero_background.jpg?url";
 import { Info, ServerCrash } from "lucide-react";
+import useGameManagement from "../hooks/useGameManagement";
 
 export default function Landing() {
   const { 1: status } = useWebSocket();
   const isConnected = status === "connected";
   const inviteCodeInputRef = useRef<HTMLInputElement | null>(null);
+
+  const { createGame, joinGame } = useGameManagement();
+
+  const handleCreateGame = () => {
+    createGame();
+  };
+
+  const handleJoinGame = () => {
+    if (inviteCodeInputRef.current) {
+      const gameId = inviteCodeInputRef.current.value;
+      joinGame(gameId);
+    }
+  };
 
   return (
     <section className="flex h-full grow flex-col items-center justify-center px-4">
@@ -55,12 +69,18 @@ export default function Landing() {
                 ref={inviteCodeInputRef}
                 className="w-full text-xs text-zinc-500 focus:outline-none sm:text-sm"
               />
-              <button className="cursor-pointer text-xs text-zinc-500 underline-offset-2 hover:underline sm:text-sm">
+              <button
+                className="cursor-pointer text-xs text-zinc-500 underline-offset-2 hover:underline sm:text-sm"
+                onClick={handleJoinGame}
+              >
                 Join
               </button>
             </div>
             <p className="text-center text-xs italic">or</p>
-            <button className="blue-gradient-btn w-full cursor-pointer rounded-md px-3 py-2 text-xs text-white transition-transform duration-200 hover:scale-105 hover:shadow-lg sm:text-sm">
+            <button
+              className="blue-gradient-btn w-full cursor-pointer rounded-md px-3 py-2 text-xs text-white transition-transform duration-200 hover:scale-105 hover:shadow-lg sm:text-sm"
+              onClick={handleCreateGame}
+            >
               New Game
             </button>
           </div>

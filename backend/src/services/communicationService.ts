@@ -286,9 +286,7 @@ export class CommunicationService {
       this.send(client, {
         event: MessageEvent.CREATE_GAME,
         payload: {
-          success: true,
           gameId: newGameId,
-          hostPlayer,
         },
       });
     } catch (err) {
@@ -342,8 +340,7 @@ export class CommunicationService {
       this.send(client, {
         event: MessageEvent.JOIN_GAME,
         payload: {
-          success: true,
-          allPlayers,
+          gameId,
         },
       });
 
