@@ -80,7 +80,7 @@ export default function useInitialiseSocket(): [
         newSocket.close();
       }
     };
-  }, []);
+  }, [navigator]);
 
   return [socket, status];
 }
