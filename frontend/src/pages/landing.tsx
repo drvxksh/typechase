@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useWebSocket } from "../hooks/useWebSocket";
 import backgroundImage from "/hero_background.jpg?url";
 import { Info, ServerCrash } from "lucide-react";
@@ -12,14 +12,27 @@ export default function Landing() {
 
   const { createGame, joinGame } = useGameManagement();
 
+  const [playBtnLoader, setPlayBtnLoader] = useState<boolean>(false);
+  const [joinBtnLoader, setJoinBtnLoader] = useState<boolean>(false);
+
   const handleCreateGame = () => {
-    createGame();
+    console.log("here");
+    if (!joinBtnLoader && !joinBtnLoader) {
+      setPlayBtnLoader(true);
+      createGame();
+      setPlayBtnLoader(false);
+    }
   };
 
   const handleJoinGame = () => {
-    if (inviteCodeInputRef.current) {
-      const gameId = inviteCodeInputRef.current.value;
-      joinGame(gameId);
+    console.log("here");
+    if (!playBtnLoader && !joinBtnLoader) {
+      if (inviteCodeInputRef.current) {
+        setJoinBtnLoader(true);
+        const gameId = inviteCodeInputRef.current.value;
+        joinGame(gameId);
+        setJoinBtnLoader(false);
+      }
     }
   };
 
@@ -34,10 +47,36 @@ export default function Landing() {
         </Link>
         {isConnected && (
           <button
-            className="blue-gradient-btn cursor-pointer rounded-full px-3 py-2 font-mono text-sm text-white transition-transform duration-200 hover:scale-105 sm:px-4 sm:py-3"
+            className={`blue-gradient-btn flex h-10 w-[98px] items-center justify-center gap-1 rounded-full px-3 py-2 sm:px-4 sm:py-3 ${
+              playBtnLoader || joinBtnLoader
+                ? "cursor-not-allowed opacity-60"
+                : "cursor-pointer transition-transform duration-200 hover:scale-105"
+            }`}
             onClick={handleCreateGame}
+            disabled={playBtnLoader || joinBtnLoader}
           >
-            Play Now
+            {playBtnLoader ? (
+              <svg
+                aria-hidden="true"
+                className="h-5 w-5 animate-spin fill-zinc-100 text-blue-800"
+                viewBox="0 0 100 101"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+                  fill="currentColor"
+                />
+                <path
+                  d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+                  fill="currentFill"
+                />
+              </svg>
+            ) : (
+              <span className="font-mono text-sm text-nowrap text-white">
+                Play Now
+              </span>
+            )}
           </button>
         )}
       </nav>
@@ -59,21 +98,21 @@ export default function Landing() {
             (status == "connecting" ? (
               <p className="flex cursor-wait items-center gap-1">
                 <Info className="size-5 text-blue-500" />
-                <span className="text-xs text-zinc-600">
+                <span className="font-roboto text-xs text-zinc-600">
                   Connecting to the server...
                 </span>
               </p>
             ) : (
               <p className="flex cursor-not-allowed items-center gap-1">
                 <ServerCrash className="size-5 text-red-500" />
-                <span className="text-xs text-zinc-600">
+                <span className="font-roboto text-xs text-zinc-600">
                   Service temporarily unavailable. Please try again later.
                 </span>
               </p>
             ))}
           {isConnected && (
             <div
-              className="flex w-[18rem] cursor-text items-center rounded-full bg-transparent px-4 py-3 outline-2 outline-zinc-300 transition-all duration-200 focus-within:outline-zinc-400 sm:w-[22rem]"
+              className={`flex w-[18rem] ${joinBtnLoader || playBtnLoader ? "cursor-not-allowed" : "cursor-text"} items-center rounded-full bg-transparent px-4 py-3 outline-2 outline-zinc-300 transition-all duration-200 focus-within:outline-zinc-400 sm:w-[22rem]`}
               onClick={() => {
                 if (inviteCodeInputRef.current)
                   inviteCodeInputRef.current.focus();
@@ -84,13 +123,38 @@ export default function Landing() {
                 name="gameId"
                 placeholder="Enter the invite code..."
                 ref={inviteCodeInputRef}
-                className="w-full text-xs text-zinc-500 focus:outline-none sm:text-sm"
+                disabled={playBtnLoader || joinBtnLoader}
+                className={`${joinBtnLoader || playBtnLoader ? "cursor-not-allowed" : "cursor-text"} w-full text-xs text-zinc-500 focus:outline-none sm:text-sm`}
               />
               <button
-                className="cursor-pointer text-xs text-zinc-500 underline-offset-2 hover:underline sm:text-sm"
                 onClick={handleJoinGame}
+                className={`${joinBtnLoader || playBtnLoader ? "cursor-not-allowed" : "cursor-pointer border-b border-transparent transition-colors duration-300 hover:border-b hover:border-zinc-500"}`}
+                disabled={joinBtnLoader || playBtnLoader}
               >
-                Join
+                {joinBtnLoader ? (
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4 animate-spin fill-zinc-400 text-zinc-300"
+                    viewBox="0 0 100 101"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+                      fill="currentColor"
+                    />
+                    <path
+                      d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+                      fill="currentFill"
+                    />
+                  </svg>
+                ) : (
+                  <span
+                    className={`text-xs ${playBtnLoader ? "opacity-50" : ""} text-zinc-500 sm:text-sm`}
+                  >
+                    Join
+                  </span>
+                )}
               </button>
             </div>
           )}
