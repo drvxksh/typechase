@@ -2,6 +2,14 @@ import { useEffect, useState } from "react";
 import { ConnectionStatus } from "../types";
 import { useNavigate } from "react-router";
 
+type WebSocketResponse = {
+  event: "connect";
+  payload: {
+    playerId: string;
+    existingGameId: string | null;
+  };
+};
+
 /**
  * Custom hook to initialize and manage a WebSocket connection
  *
@@ -30,9 +38,6 @@ export default function useInitialiseSocket(): [
     newSocket.onopen = () => {
       setSocket(newSocket);
 
-      connectionStatus = "connected";
-      setStatus(connectionStatus);
-
       clearTimeout(timeoutId);
 
       // check for exisisting playerId in the local storage
@@ -50,23 +55,23 @@ export default function useInitialiseSocket(): [
     };
 
     newSocket.onmessage = (event: MessageEvent) => {
-      const data = JSON.parse(event.data);
+      const data: WebSocketResponse = JSON.parse(event.data);
 
-      // data.type ensures that we're listening to this event and success ensures that the function was successful
-      if (data.type == "connect" && data.payload.success === true) {
+      if (data.event === "connect") {
         const playerId = data.payload.playerId;
         localStorage.setItem("playerId", playerId);
-      }
 
-      // navigate the user to the game page if required
-      if (data.payload.existingGameId) {
-        navigator(`/game/${data.payload.existingGameId}`);
+        // when the backend is aware about the connection, then consider the current connection as connected
+        connectionStatus = "connected";
+        setStatus(connectionStatus);
+
+        // if this user is a part of a game, send it back
+        if (data.payload.existingGameId)
+          navigator(`game/${data.payload.existingGameId}`);
       }
     };
 
     newSocket.onerror = () => {
-      console.error("Could not connect to the server!");
-
       connectionStatus = "failed";
       setStatus(connectionStatus);
 

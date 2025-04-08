@@ -206,7 +206,6 @@ export class CommunicationService {
       payload: {
         playerId: client.playerId,
         existingGameId,
-        success: true,
       },
     });
   }
