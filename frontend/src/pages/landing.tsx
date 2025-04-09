@@ -3,7 +3,7 @@ import { useWebSocket } from "../hooks/useWebSocket";
 import backgroundImage from "/hero_background.jpg?url";
 import { Info, ServerCrash } from "lucide-react";
 import useGameManagement from "../hooks/useGameManagement";
-import { Link } from "react-router";
+import Logo from "../components/Logo";
 
 export default function Landing() {
   const { 1: status } = useWebSocket();
@@ -39,12 +39,7 @@ export default function Landing() {
   return (
     <section className="flex h-full flex-col">
       <nav className="mx-2 mt-2 flex h-14 items-center justify-between rounded-full border border-zinc-100 bg-white px-4 py-2 sm:mx-4">
-        <Link
-          to="/"
-          className="font-courier pointer-cursor text-xl font-bold text-zinc-800 sm:text-2xl"
-        >
-          Type<span className="text-blue-600">chase</span>
-        </Link>
+        <Logo />
         {isConnected && (
           <button
             className={`blue-gradient-btn flex h-10 w-[98px] items-center justify-center gap-1 rounded-full px-3 py-2 sm:px-4 sm:py-3 ${
