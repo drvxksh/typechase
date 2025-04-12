@@ -14,6 +14,7 @@ export enum MessageEvent {
   "START_GAME" = "start_game",
   "PLAYER_UPDATE" = "player_update",
   "FINISH_GAME" = "finish_game",
+  "CHECK_GAME_ID" = "check_game_id",
 }
 
 export interface WebSocketMessage {

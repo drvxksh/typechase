@@ -117,6 +117,9 @@ export class CommunicationService {
       case MessageEvent.JOIN_GAME:
         this.handleJoinGame(client, payload);
         break;
+      case MessageEvent.CHECK_GAME_ID:
+        this.handleCheckGameId(client, payload);
+        break;
       case MessageEvent.CHANGE_USERNAME:
         this.handleChangeUsername(client, payload);
         break;
@@ -370,6 +373,21 @@ export class CommunicationService {
       console.error("Error joining game:", err);
       this.sendError(client, "Failed to join game");
     }
+  }
+
+  /**
+   * Checks if a game ID is valid and matches the client's current game
+   */
+  private async handleCheckGameId(
+    client: SocketClient,
+    payload: any,
+  ): Promise<void> {
+    this.send(client, {
+      event: MessageEvent.CHECK_GAME_ID,
+      payload: {
+        invalidGameId: client.gameId !== payload.gameId,
+      },
+    });
   }
 
   private async handleChangeUsername(

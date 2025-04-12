@@ -10,3 +10,10 @@ export type Lobby = {
     playerId: string;
   }[];
 };
+
+export enum GameStatus {
+  WAITING = "waiting",
+  STARTING = "starting",
+  IN_PROGRESS = "in_progress",
+  COMPLETED = "completed",
+}
