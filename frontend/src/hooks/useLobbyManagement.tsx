@@ -1,8 +1,21 @@
 import { useEffect } from "react";
-import { useWebSocket } from "./useWebSocket";
-import invariant from "tiny-invariant";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
+import { useSocketMessaging } from "./useSocketMessaging";
+
+type WebSocketResponse =
+  | {
+      event: "join_game" | "create_game";
+      payload: {
+        gameId: string;
+      };
+    }
+  | {
+      event: "error";
+      payload: {
+        message: string;
+      };
+    };
 
 /**
  * Custom hook for managing game room operations via WebSocket.
@@ -13,27 +26,13 @@ import { useNavigate } from "react-router";
  * @returns {Function} createGame - Function to create a new game room
  * @returns {Function} joinGame - Function to join an existing game room by ID
  */
-export default function useGameManagement(): {
+export default function useLobbyManagement(): {
   createGame: () => void;
   joinGame: (gameId: string) => void;
 } {
-  const [socket, status] = useWebSocket();
+  // const [socket, status] = useWebSocket();
+  const { socket, status, sendMessage } = useSocketMessaging();
   const navigator = useNavigate();
-
-  // possible types of the websocket response that this hook is responsible for
-  type WebSocketResponse =
-    | {
-        event: "join_game" | "create_game";
-        payload: {
-          gameId: string;
-        };
-      }
-    | {
-        event: "error";
-        payload: {
-          message: string;
-        };
-      };
 
   useEffect(() => {
     if (!socket || status !== "connected") return;
@@ -62,39 +61,11 @@ export default function useGameManagement(): {
   }, [socket, status, navigator]);
 
   const createGame = () => {
-    // ensure that the socket is set up properly. an invariant takes in the conditions that we want to be ensured and errors out otherwise
-    invariant(
-      status === "connected" && socket,
-      "Cannot create a game before initialising the socket connection",
-    );
-
-    // the socket can error if the socket was not setup so we check that and avoid the try catch
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(
-        JSON.stringify({
-          event: "create_game",
-          payload: {}, // the playerId is fetched from the socket client in the backend
-        }),
-      );
-    }
+    sendMessage("create_game");
   };
 
   const joinGame = (gameId: string) => {
-    invariant(
-      status === "connected" && socket,
-      "Cannot join a game before initialising the socket connection",
-    );
-
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(
-        JSON.stringify({
-          event: "join_game",
-          payload: {
-            gameId,
-          },
-        }),
-      );
-    }
+    sendMessage("join_game", { gameId });
   };
 
   return { createGame, joinGame };

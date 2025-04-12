@@ -262,14 +262,17 @@ export class CommunicationService {
     const playerId = client.playerId;
 
     if (!playerId) {
-      this.sendError(client, "Bad request: unknown user");
+      this.sendError(client, "unknown user");
       return;
     }
 
     const gameId = client.gameId;
 
     if (gameId) {
-      this.sendError(client, "Bad request: user is already part of a game");
+      this.sendError(
+        client,
+        "couldn't create a new game - already a part of some other game",
+      );
       return;
     }
 
@@ -280,8 +283,6 @@ export class CommunicationService {
 
       await this.subscribeToGame(client);
 
-      const hostPlayer = await this.gameService.getPlayerState(playerId);
-
       this.send(client, {
         event: MessageEvent.CREATE_GAME,
         payload: {
@@ -289,8 +290,11 @@ export class CommunicationService {
         },
       });
     } catch (err) {
-      console.error("Error creating game:", err);
-      this.sendError(client, "Failed to create game");
+      console.error("error creating a new game:", err);
+      this.sendError(
+        client,
+        "couldn't create a new game - something went wrong",
+      );
     }
   }
 
@@ -302,12 +306,15 @@ export class CommunicationService {
     const existingGameId = client.gameId;
 
     if (!playerId) {
-      this.sendError(client, "Bad request: unknown user");
+      this.sendError(client, "unknown user");
       return;
     }
 
     if (existingGameId) {
-      this.sendError(client, "Bad request: user is already part of a game");
+      this.sendError(
+        client,
+        "couldn't join the game - already a part of some other game",
+      );
       return;
     }
 
@@ -315,7 +322,10 @@ export class CommunicationService {
     const { gameId } = payload;
 
     if (!gameId) {
-      this.sendError(client, "Bad request: gameId is required to join a game");
+      this.sendError(
+        client,
+        "couldn't join the game - invite code not provided",
+      );
       return;
     }
 
@@ -324,7 +334,7 @@ export class CommunicationService {
       const currentSize = await this.gameService.getRoomSize(playerId);
 
       if (currentSize > MAX_SIZE) {
-        this.sendError(client, "Room is full. Try another game.");
+        this.sendError(client, "Cannot join game - room is full");
         return;
       }
 
@@ -332,9 +342,6 @@ export class CommunicationService {
 
       // store the gameId on the client
       client.gameId = gameId;
-      // send back the currentPlayer state to this client
-      const allPlayers: PlayerState[] =
-        await this.gameService.getAllPlayers(gameId);
 
       this.send(client, {
         event: MessageEvent.JOIN_GAME,
