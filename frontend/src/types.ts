@@ -1,8 +1,9 @@
 /**
- * WebSocket connection status
+ * the state of the websocket connection
  */
 export type ConnectionStatus = "connecting" | "connected" | "failed";
 
+/** the type for the lobby of a game */
 export type Lobby = {
   hostId: string;
   players: {

@@ -5,6 +5,7 @@ import { GameService } from "./gameService";
 import {
   BroadcastEvent,
   GameStatus,
+  Lobby,
   MAX_SIZE,
   MessageEvent,
   MIN_SIZE,
@@ -112,13 +113,16 @@ export class CommunicationService {
         await this.handleConnect(client, payload);
         break;
       case MessageEvent.CREATE_GAME:
-        this.handleCreateGame(client, payload);
+        this.handleCreateGame(client);
         break;
       case MessageEvent.JOIN_GAME:
         this.handleJoinGame(client, payload);
         break;
       case MessageEvent.CHECK_GAME_ID:
         this.handleCheckGameId(client, payload);
+        break;
+      case MessageEvent.GET_LOBBY:
+        this.handleGetLobby(client);
         break;
       case MessageEvent.CHANGE_USERNAME:
         this.handleChangeUsername(client, payload);
@@ -140,8 +144,6 @@ export class CommunicationService {
 
   /**
    * Handles player disconnection from a game
-   * @param client - The WebSocket client that disconnected
-   * @returns A Promise that resolves when the disconnection has been processed
    */
   private async handleDisconnection(client: SocketClient): Promise<void> {
     const playerId = client.playerId;
@@ -168,8 +170,6 @@ export class CommunicationService {
 
   /**
    * Handles connection requests from clients
-   * @param client - The WebSocket client
-   * @param payload - The message payload containing optional playerId
    */
   private async handleConnect(
     client: SocketClient,
@@ -214,9 +214,7 @@ export class CommunicationService {
   }
 
   /**
-   * Verifies if a client is a registered player and is part of a game
-   * @param client - The WebSocket client to verify
-   * @returns void - Sends error messages to the client if validation fails
+   * Verifies if a client is a registered player and is part of a game. Returns true if valid
    */
   private verifySocket(client: SocketClient): boolean {
     if (!client.playerId) {
@@ -234,9 +232,7 @@ export class CommunicationService {
 
   /**
    * Subscribes a client to game updates via Redis PubSub
-   * @param client - The WebSocket client to subscribe
    * @throws Error if the client is not associated with a game
-   * @returns A Promise that resolves when subscription is complete
    */
   private async subscribeToGame(client: SocketClient): Promise<void> {
     // checks that the socket is a valid player.
@@ -244,24 +240,17 @@ export class CommunicationService {
       return;
     }
 
-    const gameId = client.gameId!;
-    const playerId = client.playerId!;
+    const gameId = client.gameId as string;
 
     await this.pubSubManager.subscribe(`game:${gameId}`, (message: string) => {
-      this.send(client, JSON.parse(message)); // send the message directly
+      this.send(client, JSON.parse(message));
     });
   }
 
   /**
    * Handles game creation requests from clients
-   * @param client - The WebSocket client
-   * @param payload - The message payload for game creation
-   * @returns A Promise that resolves when game creation handling is complete
    */
-  private async handleCreateGame(
-    client: SocketClient,
-    payload: any,
-  ): Promise<void> {
+  private async handleCreateGame(client: SocketClient): Promise<void> {
     const playerId = client.playerId;
 
     if (!playerId) {
@@ -301,6 +290,7 @@ export class CommunicationService {
     }
   }
 
+  /** joins the client to a game room */
   private async handleJoinGame(
     client: SocketClient,
     payload: any,
@@ -355,7 +345,7 @@ export class CommunicationService {
 
       // publish to others of this new player
       const newPlayerState: PlayerState =
-        await this.gameService.getPlayerState(playerId);
+        await this.gameService.getPlayerInfo(playerId);
 
       await this.pubSubManager.publish(
         `game:${gameId}`,
@@ -390,6 +380,31 @@ export class CommunicationService {
     });
   }
 
+  /**
+   * retrieves the state of a game lobby
+   * @throws if the gameId is not of a valid game
+   */
+  private async handleGetLobby(client: SocketClient): Promise<void> {
+    // verify that this client is valid
+    if (!this.verifySocket(client)) return;
+
+    const gameId: string = client.gameId!;
+    try {
+      const lobby: Lobby = await this.gameService.getLobby(gameId);
+
+      this.send(client, {
+        event: MessageEvent.GET_LOBBY,
+        payload: {
+          lobby,
+        },
+      });
+    } catch (err) {
+      console.error("error retrieving the game lobby", err);
+      this.sendError(client, "invalid game");
+    }
+  }
+
+  /** handler to change the username */
   private async handleChangeUsername(
     client: SocketClient,
     payload: any,
@@ -403,7 +418,7 @@ export class CommunicationService {
     const { newUsername } = payload;
 
     if (!newUsername) {
-      this.sendError(client, "Bad request: newUsername is required");
+      this.sendError(client, "username cannot be empty");
       return;
     }
 

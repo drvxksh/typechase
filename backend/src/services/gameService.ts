@@ -3,8 +3,8 @@ import {
   Game,
   GameResult,
   GameStatus,
-  Player,
-  PlayerState,
+  Lobby,
+  PlayerInfo,
 } from "../types";
 import { StorageService } from "./storageService";
 import { v4 as uuid } from "uuid";
@@ -23,8 +23,8 @@ export class GameService {
     return this.storageService.getPlayerGameId(playerId);
   }
 
-  public async getGameState(gameId: string): Promise<GameStatus> {
-    return this.storageService.getGameState(gameId);
+  public async getGameStatus(gameId: string): Promise<GameStatus> {
+    return this.storageService.getGameStatus(gameId);
   }
 
   /**
@@ -138,24 +138,13 @@ export class GameService {
     }
   }
 
-  /**
-   * Retrieves the player states (IDs and names) for all players in a game
-   * @param gameId The unique identifier of the game
-   * @returns A Promise resolving to an array of PlayerState objects containing player IDs and names
-   * @throws Error if the specified game with that id does not exist
-   */
-  public async getAllPlayers(gameId: string): Promise<PlayerState[]> {
-    return this.storageService.getAllPlayers(gameId);
+  /** retrieves the game lobby of the given game */
+  public async getLobby(gameId: string): Promise<Lobby> {
+    return this.storageService.getLobby(gameId);
   }
 
-  /**
-   * Retrieves the player state(ID and name) for the required player
-   * @param playerId The unique identifier of the player
-   * @returns A Promise resolving to an array of PlayerState objects containing player IDs and names
-   * @throws Error if the specified player with that id does not exist
-   */
-  public async getPlayerState(playerId: string): Promise<PlayerState> {
-    return this.storageService.getPlayerState(playerId);
+  public async getPlayerInfo(playerId: string): Promise<PlayerInfo> {
+    return this.storageService.getPlayerInfo(playerId);
   }
 
   /**

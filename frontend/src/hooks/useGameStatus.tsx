@@ -12,6 +12,12 @@ type WebSocketResponse =
       };
     }
   | {
+      event: "start_game";
+    }
+  | {
+      event: "leave_game";
+    }
+  | {
       event: "error";
       payload: {
         message: string;
@@ -19,9 +25,9 @@ type WebSocketResponse =
     };
 
 /**
- * A custom hook to validate if a given gameid exists or not. If not, navigates to the landing page otherwise returns the state of the game
+ * custom hook to fetch the status of the game. redirects to the landing page if the gameId is invalid
  */
-export default function useValidateGame(gameId: string | undefined) {
+export default function useGameStatus(gameId: string | undefined) {
   const { socket, status, sendMessage } = useSocketMessaging();
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
 
@@ -44,6 +50,14 @@ export default function useValidateGame(gameId: string | undefined) {
           toast.error("invalid game");
           navigator("/");
         }
+      }
+
+      if (data.event === "start_game") {
+        setGameStatus(GameStatus.STARTING);
+      }
+
+      if (data.event === "leave_game") {
+        navigator("/");
       }
     };
 

@@ -1,11 +1,11 @@
 import { useParams } from "react-router";
 import Logo from "../components/Logo";
-import { useState } from "react";
 import { Copy, Crown } from "lucide-react";
 import { toast } from "sonner";
-import useValidateGame from "../hooks/useValidateGame";
-import { GameStatus, Lobby } from "../types";
+import { GameStatus } from "../types";
 import useLobbyManagement from "../hooks/useLobbyManagement";
+import invariant from "tiny-invariant";
+import useGameStatus from "../hooks/useGameStatus";
 
 export default function Game() {
   // Extract the game id
@@ -13,7 +13,7 @@ export default function Game() {
   const gameId = params.gameId;
 
   // validate that this gameId is valid. If valid, fetch the state otherwise navigate to the landing page
-  const { gameStatus } = useValidateGame(gameId);
+  const { gameStatus } = useGameStatus(gameId);
 
   return (
     <section className="h-full px-4">
@@ -41,11 +41,16 @@ function renderGameContent(gameStatus: GameStatus | null) {
   }
 }
 
+/** Rendered when the state of the game is "waiting" */
 function LobbyComponent() {
   const params = useParams();
   const gameId = params.gameId;
 
-  const { startGame, leaveGame } = useLobbyManagement();
+  invariant(gameId, "Gameid required to render the lobby");
+
+  const { startGame, leaveGame, lobby } = useLobbyManagement();
+
+  if (!lobby) return;
 
   const handleStartGame = () => {
     startGame();
@@ -65,24 +70,6 @@ function LobbyComponent() {
       });
     }
   };
-
-  const { 0: lobby } = useState<Lobby>({
-    hostId: "123",
-    players: [
-      {
-        playerName: "Ram",
-        playerId: "123",
-      },
-      {
-        playerName: "Shyam",
-        playerId: "456",
-      },
-      {
-        playerName: "Laxman",
-        playerId: "789",
-      },
-    ],
-  });
 
   const currentUserId = localStorage.getItem("playerId");
 

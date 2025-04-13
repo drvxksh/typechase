@@ -10,6 +10,7 @@ export enum MessageEvent {
   "CONNECT" = "connect",
   "CREATE_GAME" = "create_game",
   "JOIN_GAME" = "join_game",
+  "GET_LOBBY" = "get_lobby",
   "CHANGE_USERNAME" = "change_username",
   "START_GAME" = "start_game",
   "PLAYER_UPDATE" = "player_update",
@@ -37,6 +38,22 @@ export interface BroadcastMessage {
   payload: any;
 }
 
+export interface Game {
+  id: string;
+  hostId: string;
+  playerIds: string[];
+  status: GameStatus;
+  gameText: string;
+  createdAt: Date;
+}
+
+export enum GameStatus {
+  WAITING = "waiting",
+  STARTING = "starting",
+  IN_PROGRESS = "in_progress",
+  COMPLETED = "completed",
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -47,14 +64,18 @@ export interface Player {
   }[];
 }
 
-export interface Game {
-  id: string;
-  hostId: string;
-  playerIds: string[];
-  status: GameStatus;
-  gameText: string;
-  createdAt: Date;
+export interface PlayerInfo {
+  playerId: string;
+  playerName: string;
 }
+
+export type Lobby = {
+  hostId: string;
+  players: {
+    playerName: string;
+    playerId: string;
+  }[];
+};
 
 export interface GameResult {
   id: string;
@@ -68,20 +89,8 @@ export interface GameResult {
   }[];
 }
 
-export enum GameStatus {
-  WAITING = "waiting",
-  STARTING = "starting",
-  IN_PROGRESS = "in_progress",
-  COMPLETED = "completed",
-}
-
 export const MIN_SIZE = 2;
 export const MAX_SIZE = 5;
-
-export interface PlayerState {
-  playerId: string;
-  playerName: string;
-}
 
 export interface FinishGamePayload {
   wpm: number;
