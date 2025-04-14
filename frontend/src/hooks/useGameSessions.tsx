@@ -31,11 +31,11 @@ export default function useGameSessions(): {
   joinGame: (gameId: string) => void;
 } {
   // const [socket, status] = useWebSocket();
-  const { socket, status, sendMessage } = useSocketMessaging();
+  const { socket, sendMessage } = useSocketMessaging();
   const navigator = useNavigate();
 
   useEffect(() => {
-    if (!socket || status !== "connected") return;
+    if (!socket) return;
 
     const handleMessage = (event: MessageEvent) => {
       const data: WebSocketResponse = JSON.parse(event.data);
@@ -58,7 +58,7 @@ export default function useGameSessions(): {
     return () => {
       socket.removeEventListener("message", handleMessage);
     };
-  }, [socket, status, navigator]);
+  }, [socket, navigator]);
 
   const createGame = () => {
     sendMessage("create_game");

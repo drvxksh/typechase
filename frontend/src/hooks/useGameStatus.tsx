@@ -28,13 +28,13 @@ type WebSocketResponse =
  * custom hook to fetch the status of the game. redirects to the landing page if the gameId is invalid
  */
 export default function useGameStatus(gameId: string | undefined) {
-  const { socket, status, sendMessage } = useSocketMessaging();
+  const { socket, sendMessage } = useSocketMessaging();
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
 
   const navigator = useNavigate();
 
   useEffect(() => {
-    if (!socket || status !== "connected") return;
+    if (!socket) return;
 
     sendMessage("check_game_id", { gameId });
 
@@ -66,7 +66,7 @@ export default function useGameStatus(gameId: string | undefined) {
     return () => {
       socket.removeEventListener("message", handleMessage);
     };
-  }, [socket, status, sendMessage, gameId, navigator]);
+  }, [socket, sendMessage, gameId, navigator]);
 
   return { gameStatus };
 }

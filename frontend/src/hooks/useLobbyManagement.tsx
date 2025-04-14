@@ -43,10 +43,10 @@ type WebSocketResponse =
  */
 export default function useLobbyManagement() {
   const [lobby, setLobby] = useState<Lobby | null>(null);
-  const { socket, status, sendMessage } = useSocketMessaging();
+  const { socket, sendMessage } = useSocketMessaging();
 
   useEffect(() => {
-    if (!socket || status !== "connected") return;
+    if (!socket) return;
 
     // request for the initial Lobby
     sendMessage("get_lobby");
@@ -96,7 +96,7 @@ export default function useLobbyManagement() {
     return () => {
       socket.removeEventListener("message", handleMessage);
     };
-  }, [socket, status, sendMessage]);
+  }, [socket, sendMessage]);
 
   const startGame = () => {
     sendMessage("start_game");

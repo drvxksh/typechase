@@ -1,6 +1,5 @@
 import invariant from "tiny-invariant";
 import { useWebSocket } from "./useWebSocket";
-import { ConnectionStatus } from "../types";
 
 /**
  * Custom hook for WebSocket messaging functionality
@@ -9,13 +8,12 @@ import { ConnectionStatus } from "../types";
 export function useSocketMessaging(): {
   sendMessage: (eventName: string, payload?: object) => void;
   socket: WebSocket | null;
-  status: ConnectionStatus;
 } {
-  const [socket, status] = useWebSocket();
+  const { 0: socket } = useWebSocket();
 
   const sendMessage = (eventName: string, payload = {}) => {
     invariant(
-      status === "connected" && socket,
+      socket,
       "Cannot perform socket action before initialising the socket connection",
     );
 
@@ -32,6 +30,5 @@ export function useSocketMessaging(): {
   return {
     sendMessage,
     socket,
-    status,
   };
 }

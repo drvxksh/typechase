@@ -1,20 +1,24 @@
 import { useEffect, useState } from "react";
 import { ConnectionStatus } from "../types";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 
-type WebSocketResponse = {
-  event: "connect";
-  payload: {
-    playerId: string;
-    existingGameId: string | null;
-  };
-};
+type WebSocketResponse =
+  | {
+      event: "connect";
+      payload: {
+        playerId: string;
+        existingGameId: string | null;
+      };
+    }
+  | {
+      event: "error";
+      payload: {
+        message: string;
+      };
+    };
 
-/**
- * Custom hook to initialize and manage a WebSocket connection
- *
- * @returns {[WebSocket|null, ConnectionStatus]} The WebSocket instance if connected, null otherwise along with the connection status
- */
+/** Custom hook to initialize and manage a WebSocket connection */
 export default function useInitialiseSocket(): [
   WebSocket | null,
   ConnectionStatus,
@@ -36,8 +40,7 @@ export default function useInitialiseSocket(): [
     }, 5000);
 
     newSocket.onopen = () => {
-      setSocket(newSocket);
-
+      // stop retrying now
       clearTimeout(timeoutId);
 
       // check for exisisting playerId in the local storage
@@ -55,19 +58,34 @@ export default function useInitialiseSocket(): [
     };
 
     newSocket.onmessage = (event: MessageEvent) => {
-      const data: WebSocketResponse = JSON.parse(event.data);
+      try {
+        const data: WebSocketResponse = JSON.parse(event.data);
 
-      if (data.event === "connect") {
-        const playerId = data.payload.playerId;
-        localStorage.setItem("playerId", playerId);
+        if (data.event === "connect") {
+          const playerId = data.payload.playerId;
+          localStorage.setItem("playerId", playerId);
 
-        // when the backend is aware about the connection, then consider the current connection as connected
-        connectionStatus = "connected";
+          // when the backend is aware about the connection, then consider the current connection as connected
+          connectionStatus = "connected";
+          setStatus(connectionStatus);
+          setSocket(newSocket);
+
+          // if this user is a part of a game, send it back
+          if (data.payload.existingGameId)
+            navigator(`game/${data.payload.existingGameId}`);
+        }
+
+        if (data.event === "error") {
+          toast.error(data.payload.message);
+
+          connectionStatus = "failed";
+          setStatus(connectionStatus);
+        }
+      } catch (err) {
+        console.error("error while parsing the backend response", err);
+
+        connectionStatus = "failed";
         setStatus(connectionStatus);
-
-        // if this user is a part of a game, send it back
-        if (data.payload.existingGameId)
-          navigator(`game/${data.payload.existingGameId}`);
       }
     };
 
