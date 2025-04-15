@@ -4,14 +4,10 @@ import {
   Game,
   GameResult,
   GameStatus,
-  Lobby,
   Player,
-  PlayerInfo,
 } from "../types";
 
-/**
- * Stores game/player info into redis for some persistence.
- */
+/** Stores game/player info into redis for some persistence. */
 export class StorageService {
   private static instance: StorageService;
   private redisClient: RedisClientType;
@@ -37,7 +33,7 @@ export class StorageService {
 
   /**
    * Gets a game object from Redis storage by game ID.
-   * @throws Error if the specified game room with that id does not exist
+   * @throws if the specified game room with that id does not exist
    */
   private async getGameObj(gameId: string): Promise<Game> {
     const roomExists = await this.redisClient.exists(`game:${gameId}`);
@@ -196,31 +192,6 @@ export class StorageService {
   }
 
   /**
-   * Changes the player state to offline
-   * @throws Error if the given playerId does not exist
-   */
-  public async markPlayerOffline(playerId: string): Promise<void> {
-    const playerObj = await this.getPlayerObj(playerId);
-
-    playerObj.currentGameId = null;
-    playerObj.state = "offline";
-
-    await this.savePlayerObj(playerObj);
-  }
-
-  /**
-   * Retrieves the player state of the specified player
-   * @throws Error if the given playerId does not exist
-   */
-  public async getPlayerStatus(
-    playerId: string,
-  ): Promise<"offline" | "online"> {
-    const playerObj = await this.getPlayerObj(playerId);
-
-    return playerObj.state;
-  }
-
-  /**
    * Removes the player from storage
    * @throws Error if the given playerId does not exist
    */
@@ -228,32 +199,20 @@ export class StorageService {
     return this.deletePlayerObj(playerId);
   }
 
-  /**
-   * Marks the player status to online
-   * @throws Error if the given playerId does not exist
-   */
-  public async markPlayerOnline(playerId: string): Promise<void> {
-    const playerObj = await this.getPlayerObj(playerId);
-
-    playerObj.state = "online";
-
-    await this.savePlayerObj(playerObj);
-  }
-
-  /** Checks if a player with the given ID exists in storage. */
+  /** Checks if the given user exists or not. */
   public async checkExistingPlayer(playerId: string): Promise<boolean> {
     const existingPlayer = await this.redisClient.exists(`player:${playerId}`);
 
     return existingPlayer === 1;
   }
 
-  /** Creates a game entry in Redis storage. */
+  /** Saves the given game into the storage */
   public async createGame(game: Game): Promise<void> {
     await this.saveGameObj(game);
   }
 
   /**
-   * Updates the current game ID of a player and adds the player to the game
+   * Updates the current game for the player while adding the player to the game as well
    * @throws Error if the specified game or player with that id does not exist
    */
   public async updatePlayerGameId(playerId: string, gameId: string) {
@@ -273,7 +232,7 @@ export class StorageService {
   }
 
   /**
-   * Creates a new player in Redis storage with the specified user ID and game ID. also adds the player to the game
+   * Creates a new player instance and saves it while updating the game data as well.
    * @throws Error if the specified game with that id does not exist
    */
   public async createNewPlayer(playerId: string, gameId: string) {
@@ -282,8 +241,6 @@ export class StorageService {
       id: playerId,
       name: playerId.substring(0, 5),
       currentGameId: gameId,
-      state: "online",
-      pastResults: [],
     };
 
     await this.savePlayerObj(newPlayerObj);
@@ -311,10 +268,10 @@ export class StorageService {
    *Retrieves the game lobby of the given game
    * @throws if the gameId is not of an existing game
    */
-  public async getLobby(gameId: string): Promise<Lobby> {
+  public async getLobby(gameId: string) {
     const gameObj = await this.getGameObj(gameId);
 
-    let players: PlayerInfo[] = [];
+    let players = [];
 
     for (const playerId in gameObj.playerIds) {
       const playerObj = await this.getPlayerObj(playerId);
@@ -330,7 +287,7 @@ export class StorageService {
    * Retrieves information about a player.
    * @throws Error if the player with the specified ID does not exist.
    */
-  public async getPlayerInfo(playerId: string): Promise<PlayerInfo> {
+  public async getPlayerInfo(playerId: string) {
     // return the id and name
     const player = await this.getPlayerObj(playerId);
 

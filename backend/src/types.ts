@@ -58,27 +58,10 @@ export interface Player {
   id: string;
   name: string;
   currentGameId: string | null;
-  state: "online" | "offline";
-  pastResults: {
-    id: string;
-  }[];
 }
-
-export interface PlayerInfo {
-  playerId: string;
-  playerName: string;
-}
-
-export type Lobby = {
-  hostId: string;
-  players: {
-    playerName: string;
-    playerId: string;
-  }[];
-};
 
 export interface GameResult {
-  id: string;
+  id: string; // same as the gameId
   players: {
     id: string;
     name: string;
