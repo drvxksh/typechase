@@ -46,6 +46,9 @@ export class StorageService {
       `game:${gameId}`,
     )) as unknown as Game;
 
+    // everytime the object is accessed, refresh its expiry so that it expires after 15mins of staying idle.
+    await this.redisClient.expire(`game:${gameId}`, 900);
+
     return game;
   }
 
@@ -55,20 +58,15 @@ export class StorageService {
    */
   private async saveGameObj(gameObj: Game): Promise<void> {
     await this.redisClient.json.set(`game:${gameObj.id}`, "$", { ...gameObj });
+
+    // update the expiry time.
+    await this.redisClient.expire(`game:${gameObj.id}`, 900);
   }
 
-  /**
-   * Removes the game object from the storage
-   * @throws Error if the specified game with that id does not exist
-   */
+  /** Removes the game object from the storage */
   private async deleteGameObj(gameId: string): Promise<void> {
-    const gameObjExists = await this.redisClient.exists(`game:${gameId}`);
-
-    if (gameObjExists !== 1) {
-      throw new Error(`Room with ID ${gameId} does not exist`);
-    }
-
-    await this.redisClient.json.del(`game:${gameId}`);
+    // expire the game obj early, it will be removed
+    await this.redisClient.expire(`game:${gameId}`, 0);
   }
 
   /**
@@ -86,6 +84,9 @@ export class StorageService {
       `player:${playerId}`,
     )) as unknown as Player;
 
+    // refresh the expiry of the player obj
+    await this.redisClient.expire(`player:${playerId}`, 1200);
+
     return player;
   }
 
@@ -94,26 +95,17 @@ export class StorageService {
     await this.redisClient.json.set(`player:${playerObj.id}`, "$", {
       ...playerObj,
     });
+
+    await this.redisClient.expire(`player:${playerObj.id}`, 1200);
   }
 
-  /**
-   * Removes the player object from the storage
-   * @throws Error if the specified player with that id does not exist
-   */
+  /** Removes the player object from the storage */
   private async deletePlayerObj(playerId: string): Promise<void> {
-    const playerExists = await this.redisClient.exists(`player:${playerId}`);
-
-    if (playerExists !== 1) {
-      throw new Error(`Player with ID ${playerId} does not exist`);
-    }
-
-    await this.redisClient.json.del(`player:${playerId}`);
+    // expire the player obj early, it will be removed
+    await this.redisClient.expire(`player:${playerId}`, 0);
   }
 
-  /**
-   * Retrieves a GameResult object from Redis storage by game ID.
-   * If no game result exists for the given ID, creates a new one.
-   */
+  /** Retrieves a GameResult obj from the storage. If no obj exists, creates a new one */
   private async getGameResultObj(gameId: string): Promise<GameResult> {
     const gameResultExists = await this.redisClient.exists(`gameId:${gameId}`);
 
@@ -137,9 +129,7 @@ export class StorageService {
     return gameResultObj;
   }
 
-  /**
-   * Saves a GameResult object to Redis storage.
-   */
+  /** Saves a GameResult object to Redis storage. */
   private async saveGameResultObj(gameResultObj: GameResult): Promise<void> {
     await this.redisClient.json.set(`gameResult:${gameResultObj.id}`, "$", {
       ...gameResultObj,
@@ -327,11 +317,6 @@ export class StorageService {
 
   /**
    * Records a player's game completion data and the game result object.
-   *
-   * @param playerId - The unique identifier of the player who finished the game.
-   * @param playerData - The payload containing the player's performance metrics.
-   * @param gameId - The unique identifier of the completed game.
-   * @returns A Promise that resolves when the player's completion data has been successfully stored.
    * @throws Error if the specified game or player with that id does not exist
    */
   public async finishGame(
@@ -355,19 +340,11 @@ export class StorageService {
 
     await this.saveGameResultObj(gameResultObj);
 
-    // reflect this info in the player object
-    playerObj.pastResults.push({
-      id: gameId,
-    });
-
     await this.savePlayerObj(playerObj);
   }
 
   /**
    * Checks if all players in a game have finished playing.
-   *
-   * @param gameId - The unique identifier of the game to check.
-   * @returns A Promise that resolves to true if all players have finished, false otherwise.
    * @throws Error if the game with the specified ID does not exist.
    */
   public async checkGameFinished(gameId: string): Promise<boolean> {
@@ -379,9 +356,6 @@ export class StorageService {
 
   /**
    * Retrieves the game result data for a specific game.
-   *
-   * @param gameId - The unique identifier of the game to get results for.
-   * @returns A Promise that resolves to the GameResult object containing player performance data.
    * @throws Error if the specified game with that id does not exist
    */
   public async getGameResult(gameId: string): Promise<GameResult> {
