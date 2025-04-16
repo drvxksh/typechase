@@ -10,6 +10,10 @@ export class GameService {
     this.storageService = StorageService.getInstance();
   }
 
+  public async validatePlayerId(playerId: string): Promise<boolean> {
+    return this.storageService.validatePlayerId(playerId);
+  }
+
   public async getPlayerGameId(playerId: string): Promise<string | null> {
     return this.storageService.getPlayerGameId(playerId);
   }

@@ -24,9 +24,7 @@ type WebSocketResponse =
       };
     };
 
-/**
- * custom hook to fetch the status of the game. redirects to the landing page if the gameId is invalid
- */
+/** Custom hook to fetch the status of the game. redirects to the landing page if the gameId is invalid */
 export default function useGameStatus(gameId: string | undefined) {
   const { socket, sendMessage } = useSocketMessaging();
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
@@ -34,7 +32,10 @@ export default function useGameStatus(gameId: string | undefined) {
   const navigator = useNavigate();
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {
+      navigator("/");
+      return;
+    }
 
     sendMessage("check_game_id", { gameId });
 

@@ -136,6 +136,12 @@ export class StorageService {
     });
   }
 
+  public async validatePlayerId(playerId: string): Promise<boolean> {
+    const playerExists = await this.redisClient.exists(`player:${playerId}`);
+
+    return playerExists === 1;
+  }
+
   /**
    * Retrieves the gameId that this player is a part of
    * @throws Error if the given playerId does not exist

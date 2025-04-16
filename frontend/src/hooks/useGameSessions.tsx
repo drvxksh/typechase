@@ -21,10 +21,6 @@ type WebSocketResponse =
  * Custom hook for managing game room operations via WebSocket.
  * Handles the creation of new game rooms and joining existing ones,
  * automatically processing WebSocket responses and navigating accordingly.
- *
- * @returns {Object} Object containing room management functions
- * @returns {Function} createGame - Function to create a new game room
- * @returns {Function} joinGame - Function to join an existing game room by ID
  */
 export default function useGameSessions(): {
   createGame: () => void;

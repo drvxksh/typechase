@@ -44,8 +44,16 @@ export class CommunicationService {
         this.sendError(socketClient, "Something went wrong");
       });
 
-      ws.on("close", async () => {
+      ws.on("close", async (socket: SocketClient) => {
         console.log("Client disconnected");
+
+        // remove this player from the game if present
+        if (socket.playerId && socket.gameId) {
+          await this.gameService.removePlayerFromGame(
+            socket.playerId,
+            socket.gameId,
+          );
+        }
       });
 
       ws.on("message", async (message: string) => {
@@ -143,28 +151,39 @@ export class CommunicationService {
     let existingGameId = null;
 
     if (playerId) {
-      // this is a returning user.
-      client.playerId = playerId;
+      // this is might be a returning user.
+      // TODO if this player Id is valid.
+      const validPlayerId = await this.gameService.validatePlayerId(playerId);
 
-      // fetch the gameId of this user
-      const gameId = await this.gameService.getPlayerGameId(playerId);
+      if (!validPlayerId) {
+        const playerId = uuid();
+        client.playerId = playerId;
+      } else {
+        client.playerId = playerId;
 
-      if (gameId) {
-        client.gameId = gameId;
+        // fetch the gameId of this user
+        const gameId = await this.gameService.getPlayerGameId(playerId);
 
-        // fetch the current state of that game.
-        const state = await this.gameService.getGameStatus(gameId);
+        if (gameId) {
+          client.gameId = gameId;
 
-        // allow the user to rejoin if the game has not yet started
-        if (state === "waiting") {
-          existingGameId = gameId;
-          client.gameId = gameId; // attach the gameId to the client.
+          // fetch the current state of that game.
+          const state = await this.gameService.getGameStatus(gameId);
 
-          await this.subscribeToGame(client); // subscribe this socket to listen for updates.
+          // allow the user to rejoin if the game has not yet started
+          if (state === "waiting") {
+            existingGameId = gameId;
+            client.gameId = gameId; // attach the gameId to the client.
+
+            // add the player back to the game
+            await this.gameService.addPlayer(playerId, gameId);
+
+            await this.subscribeToGame(client); // subscribe this socket to listen for updates.
+          }
         }
-      }
 
-      // if the gameId does not exist, we normally return the id that came in.
+        // if the gameId does not exist, we normally return the id that came in.
+      }
     } else {
       // create a new user
       const newPlayerId = uuid();
@@ -304,7 +323,6 @@ export class CommunicationService {
         },
       });
 
-      // FIXME
       // publish to others of this new player
       const newPlayerState = await this.gameService.getPlayerInfo(playerId);
 
