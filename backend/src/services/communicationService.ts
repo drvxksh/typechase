@@ -44,28 +44,33 @@ export class CommunicationService {
         this.sendError(socketClient, "Something went wrong");
       });
 
-      ws.on("close", async (socket: SocketClient) => {
-        console.log("Client disconnected");
-
+      ws.on("close", async () => {
         // remove this player from the game if present
-        if (socket.playerId && socket.gameId) {
+        if (socketClient.playerId && socketClient.gameId) {
+          console.log("removing the player");
+
           await this.gameService.removePlayerFromGame(
-            socket.playerId,
-            socket.gameId,
+            socketClient.playerId,
+            socketClient.gameId,
           );
         }
       });
 
       ws.on("message", async (message: string) => {
+        // TODO write better error messages
         // a convention that the messages will be relayed in JSON only
-        try {
-          const data = JSON.parse(message);
+        let data = null;
 
-          await this.processMessage(socketClient, data);
+        try {
+          data = JSON.parse(message);
         } catch (err) {
           console.error("Unknown message format:", err);
 
           this.sendError(socketClient, "Invalid Message Format");
+        }
+
+        if (data) {
+          await this.processMessage(socketClient, data);
         }
       });
     });
@@ -165,20 +170,31 @@ export class CommunicationService {
         const gameId = await this.gameService.getPlayerGameId(playerId);
 
         if (gameId) {
-          client.gameId = gameId;
+          //check if this game still exists
+          const validGame = await this.gameService.validateGameId(gameId);
+          console.log(`existence of ${gameId}`, validGame);
 
-          // fetch the current state of that game.
-          const state = await this.gameService.getGameStatus(gameId);
+          if (!validGame) {
+            const playerId = uuid();
+            client.playerId = playerId;
+          } else {
+            client.gameId = gameId;
 
-          // allow the user to rejoin if the game has not yet started
-          if (state === "waiting") {
-            existingGameId = gameId;
-            client.gameId = gameId; // attach the gameId to the client.
+            // fetch the current state of that game.
+            const state = await this.gameService.getGameStatus(gameId);
 
-            // add the player back to the game
-            await this.gameService.addPlayer(playerId, gameId);
+            console.log("status of the existing game is", state);
 
-            await this.subscribeToGame(client); // subscribe this socket to listen for updates.
+            // allow the user to rejoin if the game has not yet started
+            if (state === "waiting") {
+              existingGameId = gameId;
+              client.gameId = gameId; // attach the gameId to the client.
+
+              // add the player back to the game
+              await this.gameService.addPlayer(playerId, gameId);
+
+              await this.subscribeToGame(client); // subscribe this socket to listen for updates.
+            }
           }
         }
 
@@ -377,7 +393,7 @@ export class CommunicationService {
       });
     } catch (err) {
       console.error("error retrieving the game lobby", err);
-      this.sendError(client, "invalid game");
+      this.sendError(client, "Something went wrong");
     }
   }
 

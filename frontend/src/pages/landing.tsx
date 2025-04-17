@@ -16,7 +16,6 @@ export default function Landing() {
   const [joinBtnLoader, setJoinBtnLoader] = useState<boolean>(false);
 
   const handleCreateGame = () => {
-    console.log("here");
     if (!joinBtnLoader && !joinBtnLoader) {
       setPlayBtnLoader(true);
       createGame();
@@ -25,7 +24,6 @@ export default function Landing() {
   };
 
   const handleJoinGame = () => {
-    console.log("here");
     if (!playBtnLoader && !joinBtnLoader) {
       if (inviteCodeInputRef.current) {
         setJoinBtnLoader(true);

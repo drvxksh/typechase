@@ -1,15 +1,8 @@
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { useSocketMessaging } from "./useSocketMessaging";
 import { Lobby } from "../types";
 
 type WebSocketResponse =
-  | {
-      event: "error";
-      payload: {
-        message: string;
-      };
-    }
   | {
       event: "get_lobby";
       payload: {
@@ -46,6 +39,7 @@ export default function useLobbyManagement() {
   const { socket, sendMessage } = useSocketMessaging();
 
   useEffect(() => {
+    console.log("lobby management hook invoked  ");
     if (!socket) return;
 
     // request for the initial Lobby
@@ -53,8 +47,6 @@ export default function useLobbyManagement() {
 
     const handleMessage = (event: MessageEvent) => {
       const data: WebSocketResponse = JSON.parse(event.data);
-
-      if (data.event === "error") toast.error(data.payload.message);
 
       if (data.event === "get_lobby") setLobby(data.payload.lobby);
 

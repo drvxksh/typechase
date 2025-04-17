@@ -72,6 +72,7 @@ function LobbyComponent() {
   };
 
   const currentUserId = localStorage.getItem("playerId");
+  console.log("lobby", lobby.hostId);
 
   return (
     <section className="mx-auto mt-[15vh] flex max-w-xl flex-col items-center justify-center gap-2 rounded-lg border border-zinc-100 p-2">
@@ -88,9 +89,9 @@ function LobbyComponent() {
         />
       </label>
       <div className="w-full max-w-md divide-y divide-zinc-100">
-        {lobby.players.map((item) => (
+        {lobby.players.map((item, index) => (
           <div
-            key={item.playerId}
+            key={index}
             className="font-poppins flex w-full items-center gap-1 p-1"
           >
             {item.playerName}

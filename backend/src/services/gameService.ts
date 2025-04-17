@@ -14,6 +14,10 @@ export class GameService {
     return this.storageService.validatePlayerId(playerId);
   }
 
+  public async validateGameId(gameId: string): Promise<boolean> {
+    return this.storageService.validateGameId(gameId);
+  }
+
   public async getPlayerGameId(playerId: string): Promise<string | null> {
     return this.storageService.getPlayerGameId(playerId);
   }
@@ -30,15 +34,7 @@ export class GameService {
     playerId: string,
     gameId: string,
   ): Promise<void> {
-    await this.storageService.removePlayerFromGame(playerId, gameId);
-  }
-
-  /**
-   * Removes the given player from the storage
-   * @throws if the player is not found
-   */
-  public async removePlayer(playerId: string): Promise<void> {
-    return this.storageService.removePlayer(playerId);
+    return this.storageService.removePlayerFromGame(playerId, gameId);
   }
 
   /** Creates a new game with the specified user as host */
@@ -47,9 +43,9 @@ export class GameService {
     const newGame: Game = {
       id: uuid(),
       hostId,
-      playerIds: [], // the current host will be added by the update/create function
+      playerIds: [], // the current host will be added by the addPlayer function
       status: GameStatus.WAITING,
-      gameText: "",
+      gameText: "", // TODO add some real text
       createdAt: new Date(),
     };
 

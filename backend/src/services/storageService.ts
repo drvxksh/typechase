@@ -65,8 +65,11 @@ export class StorageService {
 
   /** Removes the game object from the storage */
   private async deleteGameObj(gameId: string): Promise<void> {
-    // expire the game obj early, it will be removed
-    await this.redisClient.expire(`game:${gameId}`, 0);
+    // Delete the JSON structure
+    await this.redisClient.json.del(`game:${gameId}`);
+    // Also delete the key itself to ensure complete cleanup
+    await this.redisClient.del(`game:${gameId}`);
+    console.log(`existence of ${gameId}`, await this.validateGameId(gameId));
   }
 
   /**
@@ -97,12 +100,6 @@ export class StorageService {
     });
 
     await this.redisClient.expire(`player:${playerObj.id}`, 1200);
-  }
-
-  /** Removes the player object from the storage */
-  private async deletePlayerObj(playerId: string): Promise<void> {
-    // expire the player obj early, it will be removed
-    await this.redisClient.expire(`player:${playerId}`, 0);
   }
 
   /** Retrieves a GameResult obj from the storage. If no obj exists, creates a new one */
@@ -142,6 +139,12 @@ export class StorageService {
     return playerExists === 1;
   }
 
+  public async validateGameId(gameId: string): Promise<boolean> {
+    const gameExists = await this.redisClient.exists(`game:${gameId}`);
+
+    return gameExists === 1;
+  }
+
   /**
    * Retrieves the gameId that this player is a part of
    * @throws Error if the given playerId does not exist
@@ -171,10 +174,13 @@ export class StorageService {
     gameId: string,
   ): Promise<void> {
     const gameObj = await this.getGameObj(gameId);
+    console.log("when removing, state of the game is", gameObj);
 
     // If this player was the host and there were no players, delete the Game
     if (gameObj.hostId === playerId && gameObj.playerIds.length === 1) {
+      console.log("deleting the game");
       await this.deleteGameObj(gameId);
+      return; // Exit early after deletion
     } else if (gameObj.hostId === playerId) {
       // otherwise make someone else the host
       gameObj.playerIds = gameObj.playerIds.filter((id) => id !== playerId);
@@ -185,14 +191,6 @@ export class StorageService {
     }
 
     await this.saveGameObj(gameObj);
-  }
-
-  /**
-   * Removes the player from storage
-   * @throws Error if the given playerId does not exist
-   */
-  public async removePlayer(playerId: string): Promise<void> {
-    return this.deletePlayerObj(playerId);
   }
 
   /** Checks if the given user exists or not. */
@@ -223,6 +221,7 @@ export class StorageService {
     const gameObj = await this.getGameObj(gameId);
 
     gameObj.playerIds.push(playerObj.id);
+    console.log("updated a playerId");
 
     await this.saveGameObj(gameObj);
   }
@@ -245,6 +244,7 @@ export class StorageService {
     const gameObj = await this.getGameObj(gameId);
 
     gameObj.playerIds.push(newPlayerObj.id);
+    console.log("added a new player to the game");
 
     await this.saveGameObj(gameObj);
   }
@@ -269,10 +269,11 @@ export class StorageService {
 
     let players = [];
 
-    for (const playerId in gameObj.playerIds) {
+    for (const playerId of gameObj.playerIds) {
       const playerObj = await this.getPlayerObj(playerId);
       players.push({ playerId: playerObj.id, playerName: playerObj.name });
     }
+
     return {
       hostId: gameObj.hostId,
       players,

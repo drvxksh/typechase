@@ -16,12 +16,6 @@ type WebSocketResponse =
     }
   | {
       event: "leave_game";
-    }
-  | {
-      event: "error";
-      payload: {
-        message: string;
-      };
     };
 
 /** Custom hook to fetch the status of the game. redirects to the landing page if the gameId is invalid */
@@ -32,6 +26,7 @@ export default function useGameStatus(gameId: string | undefined) {
   const navigator = useNavigate();
 
   useEffect(() => {
+    console.log("game status hook invoked");
     if (!socket) {
       navigator("/");
       return;
@@ -42,23 +37,16 @@ export default function useGameStatus(gameId: string | undefined) {
     const handleMessage = (event: MessageEvent) => {
       const data: WebSocketResponse = JSON.parse(event.data);
 
-      if (data.event === "error") toast.error(data.payload.message);
-
       if (data.event === "check_game_id") {
         const invalidGameId = data.payload.invalidGameId;
 
         if (invalidGameId) {
           toast.error("invalid game");
           navigator("/");
+        } else {
+          // this game is valid, the starting state of this game would be waiting
+          setGameStatus(GameStatus.WAITING);
         }
-      }
-
-      if (data.event === "start_game") {
-        setGameStatus(GameStatus.STARTING);
-      }
-
-      if (data.event === "leave_game") {
-        navigator("/");
       }
     };
 
@@ -67,7 +55,7 @@ export default function useGameStatus(gameId: string | undefined) {
     return () => {
       socket.removeEventListener("message", handleMessage);
     };
-  }, [socket, sendMessage, gameId, navigator]);
+  }, [socket, sendMessage, gameId]);
 
   return { gameStatus };
 }

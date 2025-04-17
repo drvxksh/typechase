@@ -1,5 +1,6 @@
 import invariant from "tiny-invariant";
 import { useWebSocket } from "./useWebSocket";
+import { useCallback } from "react";
 
 /**
  * Custom hook for WebSocket messaging functionality
@@ -11,21 +12,24 @@ export function useSocketMessaging(): {
 } {
   const { 0: socket } = useWebSocket();
 
-  const sendMessage = (eventName: string, payload = {}) => {
-    invariant(
-      socket,
-      "Cannot perform socket action before initialising the socket connection",
-    );
-
-    if (socket.readyState === WebSocket.OPEN) {
-      socket.send(
-        JSON.stringify({
-          event: eventName,
-          payload,
-        }),
+  const sendMessage = useCallback(
+    (eventName: string, payload = {}) => {
+      invariant(
+        socket,
+        "Cannot perform socket action before initialising the socket connection",
       );
-    }
-  };
+
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(
+          JSON.stringify({
+            event: eventName,
+            payload,
+          }),
+        );
+      }
+    },
+    [socket],
+  );
 
   return {
     sendMessage,

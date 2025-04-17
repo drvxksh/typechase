@@ -29,6 +29,7 @@ export default function useInitialiseSocket(): [
   const navigator = useNavigate();
 
   useEffect(() => {
+    console.log("initialisation hook invoked");
     // create local variables so that we don't include them in the dependency array
     const newSocket = new WebSocket("ws://localhost:3000");
     let connectionStatus: ConnectionStatus = "connecting";
@@ -48,7 +49,7 @@ export default function useInitialiseSocket(): [
 
       // communicate the playerId with the backend
       const payload = {
-        type: "connect",
+        event: "connect",
         payload: {
           playerId: existingPlayerId ? existingPlayerId : null,
         },
@@ -58,6 +59,7 @@ export default function useInitialiseSocket(): [
     };
 
     newSocket.onmessage = (event: MessageEvent) => {
+      // TODO only keep the error prone code inside the try catch.
       try {
         const data: WebSocketResponse = JSON.parse(event.data);
 
@@ -77,9 +79,6 @@ export default function useInitialiseSocket(): [
 
         if (data.event === "error") {
           toast.error(data.payload.message);
-
-          connectionStatus = "failed";
-          setStatus(connectionStatus);
         }
       } catch (err) {
         console.error("error while parsing the backend response", err);
@@ -103,7 +102,7 @@ export default function useInitialiseSocket(): [
         newSocket.close();
       }
     };
-  }, [navigator]);
+  }, []);
 
   return [socket, status];
 }

@@ -1,21 +1,13 @@
 import { useEffect } from "react";
-import { toast } from "sonner";
 import { useNavigate } from "react-router";
 import { useSocketMessaging } from "./useSocketMessaging";
 
-type WebSocketResponse =
-  | {
-      event: "join_game" | "create_game";
-      payload: {
-        gameId: string;
-      };
-    }
-  | {
-      event: "error";
-      payload: {
-        message: string;
-      };
-    };
+type WebSocketResponse = {
+  event: "join_game" | "create_game";
+  payload: {
+    gameId: string;
+  };
+};
 
 /**
  * Custom hook for managing game room operations via WebSocket.
@@ -26,11 +18,11 @@ export default function useGameSessions(): {
   createGame: () => void;
   joinGame: (gameId: string) => void;
 } {
-  // const [socket, status] = useWebSocket();
   const { socket, sendMessage } = useSocketMessaging();
   const navigator = useNavigate();
 
   useEffect(() => {
+    console.log("game session hook invoked");
     if (!socket) return;
 
     const handleMessage = (event: MessageEvent) => {
@@ -42,11 +34,6 @@ export default function useGameSessions(): {
 
         navigator(`/game/${gameId}`);
       }
-
-      // or toast in case of an error
-      if (data.event === "error") {
-        toast.error(data.payload.message);
-      }
     };
 
     socket.addEventListener("message", handleMessage);
@@ -54,7 +41,7 @@ export default function useGameSessions(): {
     return () => {
       socket.removeEventListener("message", handleMessage);
     };
-  }, [socket, navigator]);
+  }, [socket]);
 
   const createGame = () => {
     sendMessage("create_game");
