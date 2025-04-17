@@ -4,15 +4,21 @@ import { Copy, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { GameStatus } from "../types";
 import useLobbyManagement from "../hooks/useLobbyManagement";
-import invariant from "tiny-invariant";
 import useGameStatus from "../hooks/useGameStatus";
+import { useNavigate } from "react-router";
 
 export default function Game() {
-  // Extract the game id
+  // fetch the gameId
   const params = useParams();
   const gameId = params.gameId;
 
-  // validate that this gameId is valid. If valid, fetch the state otherwise navigate to the landing page
+  const navigator = useNavigate();
+
+  if (!gameId) {
+    navigator("/");
+  }
+
+  // return the default status of the game. Redirect to the landing if the game is invalid
   const { gameStatus } = useGameStatus(gameId);
 
   return (
@@ -44,9 +50,7 @@ function renderGameContent(gameStatus: GameStatus | null) {
 /** Rendered when the state of the game is "waiting" */
 function LobbyComponent() {
   const params = useParams();
-  const gameId = params.gameId;
-
-  invariant(gameId, "Gameid required to render the lobby");
+  const gameId = params.gameId as string;
 
   const { startGame, leaveGame, lobby } = useLobbyManagement();
 
@@ -61,18 +65,15 @@ function LobbyComponent() {
   };
 
   const handleCopyInviteCode = async () => {
-    if (gameId) {
-      const copyPromise = navigator.clipboard.writeText(gameId);
-      toast.promise(copyPromise, {
-        loading: "Copying...",
-        success: "Copied to the clipboard",
-        error: "Something went wrong",
-      });
-    }
+    const copyPromise = navigator.clipboard.writeText(gameId);
+    toast.promise(copyPromise, {
+      loading: "Copying...",
+      success: "Copied to the clipboard",
+      error: "Something went wrong",
+    });
   };
 
   const currentUserId = localStorage.getItem("playerId");
-  console.log("lobby", lobby.hostId);
 
   return (
     <section className="mx-auto mt-[15vh] flex max-w-xl flex-col items-center justify-center gap-2 rounded-lg border border-zinc-100 p-2">
