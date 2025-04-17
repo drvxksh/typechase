@@ -1,12 +1,12 @@
 import { Route, Routes } from "react-router";
 import Landing from "./Pages/Landing";
 import { Toaster } from "sonner";
-import useInitialiseSocket from "./hooks/useInitialiseSocket";
 import { WebSocketProvider } from "./context/WebSocketContextProvider";
 import Game from "./Pages/Game";
+import useConnectSocket from "./hooks/useConnectSocket";
 
 export default function AppRoutes() {
-  const [socket, status] = useInitialiseSocket();
+  const [socket, status] = useConnectSocket();
 
   return (
     <WebSocketProvider websocket={socket} connectionStatus={status}>
