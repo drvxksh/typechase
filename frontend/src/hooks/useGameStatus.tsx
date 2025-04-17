@@ -8,7 +8,7 @@ type WebSocketResponse =
   | {
       event: "check_game_id";
       payload: {
-        invalidGameId: boolean;
+        isGameInvalid: boolean;
       };
     }
   | {
@@ -26,7 +26,6 @@ export default function useGameStatus(gameId: string | undefined) {
   const navigator = useNavigate();
 
   useEffect(() => {
-    console.log("game status hook invoked");
     if (!socket) {
       navigator("/");
       return;
@@ -35,17 +34,28 @@ export default function useGameStatus(gameId: string | undefined) {
     sendMessage("check_game_id", { gameId });
 
     const handleMessage = (event: MessageEvent) => {
-      const data: WebSocketResponse = JSON.parse(event.data);
+      let data: WebSocketResponse | null = null;
 
-      if (data.event === "check_game_id") {
-        const invalidGameId = data.payload.invalidGameId;
+      try {
+        data = JSON.parse(event.data);
+      } catch (err) {
+        console.error("couldn't parse the backend response", err);
+      }
 
-        if (invalidGameId) {
-          toast.error("invalid game");
-          navigator("/");
-        } else {
-          // this game is valid, the starting state of this game would be waiting
-          setGameStatus(GameStatus.WAITING);
+      if (data) {
+        switch (data.event) {
+          case "check_game_id": {
+            const isGameInvalid = data.payload.isGameInvalid;
+
+            if (isGameInvalid) {
+              toast.error("Invalid game");
+              navigator("/");
+            } else {
+              setGameStatus(GameStatus.WAITING);
+            }
+
+            break;
+          }
         }
       }
     };
@@ -55,6 +65,8 @@ export default function useGameStatus(gameId: string | undefined) {
     return () => {
       socket.removeEventListener("message", handleMessage);
     };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, sendMessage, gameId]);
 
   return { gameStatus };

@@ -3,7 +3,7 @@ import { useWebSocket } from "./useWebSocket";
 import { useCallback } from "react";
 
 /**
- * Custom hook for WebSocket messaging functionality
+ * Messaging wrapper for sending websocket events/messages
  * @throws when the socket is not initialised or the status !== connected
  */
 export function useSocketMessaging(): {
@@ -12,11 +12,12 @@ export function useSocketMessaging(): {
 } {
   const { 0: socket } = useWebSocket();
 
+  // memoise the function so that it doesn't cause re-renders if included in dependency arrays
   const sendMessage = useCallback(
     (eventName: string, payload = {}) => {
       invariant(
         socket,
-        "Cannot perform socket action before initialising the socket connection",
+        "The socket was not connected before sending the message",
       );
 
       if (socket.readyState === WebSocket.OPEN) {
@@ -28,6 +29,7 @@ export function useSocketMessaging(): {
         );
       }
     },
+
     [socket],
   );
 

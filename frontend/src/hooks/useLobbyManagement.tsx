@@ -29,7 +29,7 @@ type WebSocketResponse =
     };
 
 /**
- * custom hook to manage the lobby
+ * Manages the game lobby
  * - retrieves the lobby of the game
  * - updates the lobby when a new user joins or an existing user changes its name
  * - sends start/leave messages to the backend when required
@@ -39,47 +39,69 @@ export default function useLobbyManagement() {
   const { socket, sendMessage } = useSocketMessaging();
 
   useEffect(() => {
-    console.log("lobby management hook invoked  ");
-    if (!socket) return;
+    if (!socket) {
+      return;
+    }
 
-    // request for the initial Lobby
+    // fetch the lobby of the game
     sendMessage("get_lobby");
 
     const handleMessage = (event: MessageEvent) => {
-      const data: WebSocketResponse = JSON.parse(event.data);
+      let data: WebSocketResponse | null = null;
 
-      if (data.event === "get_lobby") setLobby(data.payload.lobby);
-
-      if (data.event === "new_player_joined") {
-        // this event indicates that there is a new user in the Lobby
-        setLobby((prevLobby) => {
-          if (!prevLobby) return prevLobby;
-          return {
-            ...prevLobby,
-            players: [
-              ...prevLobby.players,
-              {
-                playerId: data.payload.newUser.playerId,
-                playerName: data.payload.newUser.playerName,
-              },
-            ],
-          };
-        });
+      try {
+        data = JSON.parse(event.data);
+      } catch (err) {
+        console.error("couldn't parse the backend response", err);
       }
 
-      if (data.event === "username_changed") {
-        // this event indicates that a user changed its playerName
-        setLobby((prevLobby) => {
-          if (!prevLobby) return prevLobby;
-          return {
-            ...prevLobby,
-            players: prevLobby.players.map((player) =>
-              player.playerId === data.payload.updatedUser.playerId
-                ? { ...player, name: data.payload.updatedUser.playerName }
-                : player,
-            ),
-          };
-        });
+      if (data) {
+        switch (data.event) {
+          case "get_lobby": {
+            setLobby(data.payload.lobby);
+
+            break;
+          }
+
+          case "new_player_joined": {
+            setLobby((prevLobby) => {
+              if (!prevLobby) return prevLobby;
+
+              return {
+                ...prevLobby,
+                players: [
+                  ...prevLobby.players,
+                  {
+                    playerId: data.payload.newUser.playerId,
+                    playerName: data.payload.newUser.playerName,
+                  },
+                ],
+              };
+            });
+
+            break;
+          }
+
+          case "username_changed": {
+            setLobby((prevLobby) => {
+              if (!prevLobby) return prevLobby;
+
+              return {
+                ...prevLobby,
+                players: prevLobby.players.map((player) =>
+                  player.playerId === data.payload.updatedUser.playerId
+                    ? {
+                        ...player,
+                        playerName: data.payload.updatedUser.playerName,
+                      }
+                    : player,
+                ),
+              };
+            });
+
+            break;
+          }
+        }
       }
     };
 

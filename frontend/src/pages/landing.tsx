@@ -3,14 +3,14 @@ import { useWebSocket } from "../hooks/useWebSocket";
 import backgroundImage from "/hero_background.jpg?url";
 import { Info, ServerCrash } from "lucide-react";
 import Logo from "../components/Logo";
-import useGameSessions from "../hooks/useGameSessions";
+import useGamePortal from "../hooks/useGamePortal";
 
 export default function Landing() {
   const { 1: status } = useWebSocket();
   const isConnected = status === "connected";
   const inviteCodeInputRef = useRef<HTMLInputElement | null>(null);
 
-  const { createGame, joinGame } = useGameSessions();
+  const { createGame, joinGame } = useGamePortal();
 
   const [playBtnLoader, setPlayBtnLoader] = useState<boolean>(false);
   const [joinBtnLoader, setJoinBtnLoader] = useState<boolean>(false);
