@@ -10,35 +10,31 @@ export class GameService {
     this.storageService = StorageService.getInstance();
   }
 
-  public async validatePlayerId(playerId: string): Promise<boolean> {
+  /** Validates whether the given playerId exists or not */
+  public async validatePlayerId(playerId: string) {
     return this.storageService.validatePlayerId(playerId);
   }
 
-  public async validateGameId(gameId: string): Promise<boolean> {
+  /** Validates whether the given gameId exists or not */
+  public async validateGameId(gameId: string) {
     return this.storageService.validateGameId(gameId);
   }
 
-  public async getPlayerGameId(playerId: string): Promise<string | null> {
-    return this.storageService.getPlayerGameId(playerId);
-  }
-
-  public async getGameStatus(gameId: string): Promise<GameStatus> {
-    return this.storageService.getGameStatus(gameId);
+  /** Returns the gameId and status for the given playerId */
+  public async getGameInfo(playerId: string) {
+    return this.storageService.getGameInfo(playerId);
   }
 
   /**
    * Removes the given player from the given game
    * @throws if the given gameId does not exist
    */
-  public async removePlayerFromGame(
-    playerId: string,
-    gameId: string,
-  ): Promise<void> {
+  public async removePlayerFromGame(playerId: string, gameId: string) {
     return this.storageService.removePlayerFromGame(playerId, gameId);
   }
 
   /** Creates a new game with the specified user as host */
-  public async createGame(hostId: string): Promise<string> {
+  public async createGame(hostId: string) {
     // create the new game object
     const newGame: Game = {
       id: uuid(),
@@ -59,10 +55,10 @@ export class GameService {
   }
 
   /**
-   * Gets the number of players in a specific game
+   * Returns the number of players in the given gameId
    * @throws Error if the specified game with that id does not exist
    */
-  public async getRoomSize(gameId: string): Promise<number> {
+  public async getRoomSize(gameId: string) {
     return this.storageService.getRoomSize(gameId);
   }
 
@@ -70,9 +66,9 @@ export class GameService {
    * Creates a player object if it doesn't exist and adds the player to the given gameId
    * @throws if the specified player or game with that id does not exist
    */
-  public async addPlayer(playerId: string, gameId: string): Promise<void> {
+  public async addPlayer(playerId: string, gameId: string) {
     // if the user exists, then we update it or create a new one
-    const userExists = await this.storageService.checkExistingPlayer(playerId);
+    const userExists = await this.storageService.validatePlayerId(playerId);
 
     if (userExists) {
       // update the player object and add the userId to the game
@@ -83,12 +79,18 @@ export class GameService {
     }
   }
 
-  /** retrieves the game lobby of the given game */
+  /**
+   * Returns the game lobby of the given game
+   * @throws if a player with the given playerId does not exist
+   */
   public async getLobby(gameId: string) {
     return this.storageService.getLobby(gameId);
   }
 
-  // FIXME
+  /**
+   * Returns the basic info of the given playerId
+   * @throws if a player with the given playerId does not exist.
+   */
   public async getPlayerInfo(playerId: string) {
     return this.storageService.getPlayerInfo(playerId);
   }
@@ -97,10 +99,7 @@ export class GameService {
    * Updates the player's username in the storage service
    * @throws if the specified player with that id does not exist
    */
-  public async changeUsername(
-    playerId: string,
-    newUsername: string,
-  ): Promise<void> {
+  public async changeUsername(playerId: string, newUsername: string) {
     return this.storageService.changeUsername(playerId, newUsername);
   }
 
@@ -111,11 +110,11 @@ export class GameService {
    * @returns A Promise that resolves when the game state has been successfully updated
    * @throws Error if the specified game with that id does not exist
    */
-  public async updateGameState(
+  public async updateGameStatus(
     gameId: string,
     newState: GameStatus,
   ): Promise<void> {
-    return this.storageService.updateGameState(gameId, newState);
+    return this.storageService.updateGameStatus(gameId, newState);
   }
 
   /**
