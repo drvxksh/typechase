@@ -12,7 +12,7 @@ type WebSocketResponse =
   | {
       event: "new_player_joined";
       payload: {
-        newUser: {
+        newPlayerInfo: {
           playerId: string;
           playerName: string;
         };
@@ -25,6 +25,13 @@ type WebSocketResponse =
           playerId: string;
           playerName: string;
         };
+      };
+    }
+  | {
+      event: "player_left";
+      payload: {
+        updatedHostId: string;
+        playerLeftId: string;
       };
     };
 
@@ -72,8 +79,8 @@ export default function useLobbyManagement() {
                 players: [
                   ...prevLobby.players,
                   {
-                    playerId: data.payload.newUser.playerId,
-                    playerName: data.payload.newUser.playerName,
+                    playerId: data.payload.newPlayerInfo.playerId,
+                    playerName: data.payload.newPlayerInfo.playerName,
                   },
                 ],
               };
@@ -101,6 +108,19 @@ export default function useLobbyManagement() {
 
             break;
           }
+
+          case "player_left": {
+            setLobby((prevLobby) => {
+              if (!prevLobby) return prevLobby;
+
+              return {
+                hostId: data.payload.updatedHostId,
+                players: prevLobby.players.filter(
+                  (player) => player.playerId !== data.payload.playerLeftId,
+                ),
+              };
+            });
+          }
         }
       }
     };
@@ -120,5 +140,13 @@ export default function useLobbyManagement() {
     sendMessage("leave_game");
   };
 
-  return { startGame, leaveGame, lobby };
+  const changeUsername = (newUsername: string) => {
+    sendMessage("change_username", {
+      payload: {
+        newUsername,
+      },
+    });
+  };
+
+  return { startGame, leaveGame, changeUsername, lobby };
 }

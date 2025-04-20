@@ -5,6 +5,7 @@ import {
   GameResult,
   GameStatus,
   Player,
+  TTL,
 } from "../types";
 
 /** Stores game/player info into redis for some persistence. */
@@ -47,7 +48,7 @@ export class StorageService {
     )) as unknown as Game;
 
     // everytime the object is accessed, refresh its expiry so that it expires after 15mins of staying idle.
-    await this.redisClient.expire(`game:${gameId}`, 900);
+    await this.redisClient.expire(`game:${gameId}`, TTL);
 
     return game;
   }
@@ -60,7 +61,7 @@ export class StorageService {
     await this.redisClient.json.set(`game:${gameObj.id}`, "$", { ...gameObj });
 
     // update the expiry time.
-    await this.redisClient.expire(`game:${gameObj.id}`, 900);
+    await this.redisClient.expire(`game:${gameObj.id}`, TTL);
   }
 
   /** Deletes a game obj */
@@ -84,7 +85,7 @@ export class StorageService {
     )) as unknown as Player;
 
     // refresh the expiry of the player obj
-    await this.redisClient.expire(`player:${playerId}`, 1200);
+    await this.redisClient.expire(`player:${playerId}`, TTL);
 
     return player;
   }
@@ -95,7 +96,7 @@ export class StorageService {
       ...playerObj,
     });
 
-    await this.redisClient.expire(`player:${playerObj.id}`, 1200);
+    await this.redisClient.expire(`player:${playerObj.id}`, TTL);
   }
 
   // TODO set a TTL to this
@@ -173,7 +174,7 @@ export class StorageService {
     // If this player was the host and there were no players, delete the Game
     if (gameObj.hostId === playerId && gameObj.playerIds.length === 1) {
       await this.deleteGameObj(gameId);
-      return;
+      return null;
     } else if (gameObj.hostId === playerId) {
       // otherwise make someone else the host
       gameObj.playerIds = gameObj.playerIds.filter((id) => id !== playerId);
@@ -184,6 +185,7 @@ export class StorageService {
     }
 
     await this.saveGameObj(gameObj);
+    return gameObj.hostId;
   }
 
   /** Saves the given game object */

@@ -20,7 +20,10 @@ export class GameService {
     return this.storageService.validateGameId(gameId);
   }
 
-  /** Returns the gameId and status for the given playerId */
+  /**
+   * Returns the gameId and status for the given playerId
+   * @throws if the given playerId has no user or the player has an invalid gameId
+   */
   public async getGameInfo(playerId: string) {
     return this.storageService.getGameInfo(playerId);
   }

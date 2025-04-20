@@ -30,6 +30,7 @@ export default function useConnectSocket(): [
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
 
+  // TODO add a health check for the frontend and backend
   const navigator = useNavigate();
 
   useEffect(() => {

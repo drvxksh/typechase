@@ -74,6 +74,7 @@ export interface GameResult {
 
 export const MIN_SIZE = 2;
 export const MAX_SIZE = 5;
+export const TTL = 3600;
 
 export interface FinishGamePayload {
   wpm: number;

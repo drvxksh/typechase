@@ -1,22 +1,16 @@
-import { useParams } from "react-router";
-import Logo from "../components/Logo";
 import { Copy, Crown } from "lucide-react";
+import { useParams } from "react-router";
 import { toast } from "sonner";
-import { GameStatus } from "../types";
-import useLobbyManagement from "../hooks/useLobbyManagement";
+import Logo from "../components/Logo";
 import useGameStatus from "../hooks/useGameStatus";
-import { useNavigate } from "react-router";
+import useLobbyManagement from "../hooks/useLobbyManagement";
+import { GameStatus } from "../types";
+import { useRef } from "react";
 
 export default function Game() {
   // fetch the gameId
   const params = useParams();
   const gameId = params.gameId;
-
-  const navigator = useNavigate();
-
-  if (!gameId) {
-    navigator("/");
-  }
 
   // return the default status of the game. Redirect to the landing if the game is invalid
   const { gameStatus } = useGameStatus(gameId);
@@ -49,20 +43,17 @@ function renderGameContent(gameStatus: GameStatus | null) {
 
 /** Rendered when the state of the game is "waiting" */
 function LobbyComponent() {
+  return (
+    <section className="mx-auto mt-[15vh] flex max-w-xl flex-col items-center justify-center gap-5">
+      <InviteCodeInput />
+      <RenderPlayers />
+    </section>
+  );
+}
+
+function InviteCodeInput() {
   const params = useParams();
   const gameId = params.gameId as string;
-
-  const { startGame, leaveGame, lobby } = useLobbyManagement();
-
-  if (!lobby) return;
-
-  const handleStartGame = () => {
-    startGame();
-  };
-
-  const handleLeaveGame = () => {
-    leaveGame();
-  };
 
   const handleCopyInviteCode = async () => {
     const copyPromise = navigator.clipboard.writeText(gameId);
@@ -73,49 +64,76 @@ function LobbyComponent() {
     });
   };
 
+  return (
+    <div
+      className="flex w-full items-center rounded-full px-4 py-2 outline outline-zinc-100"
+      onClick={handleCopyInviteCode}
+    >
+      <input
+        className="w-full cursor-default font-mono text-zinc-700 focus:outline-none"
+        value={gameId}
+        readOnly
+      />
+      <Copy className="size-5 cursor-pointer text-zinc-300 transition-colors duration-300 hover:text-zinc-600" />
+    </div>
+  );
+}
+
+function RenderPlayers() {
+  const { startGame, leaveGame, changeUsername, lobby } = useLobbyManagement();
+
+  const handleStartGame = () => {
+    startGame();
+  };
+
+  const handleLeaveGame = () => {
+    leaveGame();
+  };
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleChangeUsername = () => {
+    if (inputRef.current) {
+      changeUsername(inputRef.current.value);
+    }
+  };
+
   const currentUserId = localStorage.getItem("playerId");
 
+  const isHost = currentUserId === lobby?.hostId;
+
   return (
-    <section className="mx-auto mt-[15vh] flex max-w-xl flex-col items-center justify-center gap-2 rounded-lg border border-zinc-100 p-2">
-      <label className="flex w-full items-center gap-2">
-        <span className="font-roboto text-nowrap">Invite Code</span>
-        <input
-          value={gameId}
-          readOnly
-          className="w-full rounded-md border border-zinc-200 px-2 py-1 font-mono text-sm italic"
-        />
-        <Copy
-          className="size-5 cursor-pointer text-zinc-400 transition-colors duration-300 hover:text-black"
-          onClick={handleCopyInviteCode}
-        />
-      </label>
-      <div className="w-full max-w-md divide-y divide-zinc-100">
-        {lobby.players.map((item, index) => (
-          <div
-            key={index}
-            className="font-poppins flex w-full items-center gap-1 p-1"
-          >
-            {item.playerName}
-            {lobby.hostId === item.playerId && <Crown className="size-4" />}
-          </div>
-        ))}
+    <section className="flex w-full flex-col gap-3 rounded-lg p-4 outline outline-zinc-100">
+      <div className="flex flex-col space-y-1 divide-y divide-zinc-100">
+        {lobby &&
+          lobby.players.map((item) => (
+            <div className="flex items-center gap-3">
+              <input
+                key={item.playerId}
+                value={item.playerName}
+                className="font-poppins w-full rounded-md p-1 text-sm text-zinc-800 outline outline-zinc-50"
+                readOnly={currentUserId !== item.playerId}
+                ref={handleChangeUsername}
+              />
+              {lobby.hostId === item.playerId && <Crown className="size-5" />}
+            </div>
+          ))}
       </div>
-      <div className="font-inter flex w-full gap-2">
-        <button
-          className="w-full cursor-pointer rounded-lg border-2 border-red-400 p-2 text-sm transition-colors duration-300 hover:bg-red-500 hover:text-white"
-          onClick={handleLeaveGame}
-        >
-          Leave Game
-        </button>
-        {currentUserId === lobby.hostId && (
+      <div className="mx-auto flex w-full gap-2">
+        {isHost && (
           <button
-            className="w-full cursor-pointer rounded-lg bg-blue-600 p-2 text-sm text-white transition-colors duration-300 hover:bg-blue-800"
             onClick={handleStartGame}
+            className="w-full rounded-md bg-blue-600 text-white"
           >
-            {" "}
             Start Game
           </button>
         )}
+        <button
+          onClick={handleLeaveGame}
+          className="w-full rounded-md bg-red-500 px-4 py-2 text-white"
+        >
+          Leave Game
+        </button>
       </div>
     </section>
   );

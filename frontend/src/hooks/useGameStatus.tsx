@@ -27,6 +27,7 @@ export default function useGameStatus(gameId: string | undefined) {
 
   useEffect(() => {
     if (!socket) {
+      // toast.error("The server is down!");
       navigator("/");
       return;
     }

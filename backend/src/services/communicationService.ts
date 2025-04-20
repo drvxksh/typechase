@@ -16,19 +16,25 @@ import { GameService } from "./gameService";
 /** Handles websocket and pub sub logic */
 export class CommunicationService {
   private static instance: CommunicationService;
-  private pubSubManager: RedisClientType;
+  private pubClient: RedisClientType;
+  private subClient: RedisClientType;
   private gameService: GameService;
   private wss: WebSocket.Server;
 
   private constructor(server: http.Server) {
     // instantiating the redis instance for pub sub manager
-    this.pubSubManager = createClient();
+    this.pubClient = createClient();
+    this.subClient = createClient();
 
-    this.pubSubManager.on("error", (err) =>
-      console.error("PubSubManager error:", err),
+    this.pubClient.on("error", (err) =>
+      console.error("publisher client error:", err),
+    );
+    this.subClient.on("error", (err) =>
+      console.error("subscriber client error:", err),
     );
 
-    this.pubSubManager.connect();
+    this.pubClient.connect();
+    this.subClient.connect();
 
     // instantiating the gameService for game related operations
     this.gameService = new GameService();
@@ -47,10 +53,23 @@ export class CommunicationService {
       ws.on("close", async () => {
         // remove this player from its corresponding game.
         if (socketClient.playerId && socketClient.gameId) {
-          await this.gameService.removePlayerFromGame(
+          const updatedHostId = await this.gameService.removePlayerFromGame(
             socketClient.playerId,
             socketClient.gameId,
           );
+
+          if (updatedHostId) {
+            await this.pubClient.publish(
+              `game:${socketClient.gameId}`,
+              JSON.stringify({
+                event: BroadcastEvent.PLAYER_LEFT,
+                payload: {
+                  updatedHostId,
+                  playerLeftId: socketClient.playerId,
+                },
+              }),
+            );
+          }
         }
       });
 
@@ -153,18 +172,35 @@ export class CommunicationService {
 
     if (!playerId) {
       this.handleNewPlayerConnect(client);
+      return;
     }
 
     // validate the playerId.
     const validPlayerId = await this.gameService.validatePlayerId(playerId);
     if (!validPlayerId) {
       this.handleNewPlayerConnect(client);
+      return;
     }
 
     // fetch the gameId and state of the Game
-    const { gameId, gameStatus } = await this.gameService.getGameInfo(playerId);
+    let gameInfo: {
+      gameId: null | string;
+      gameStatus: null | string;
+    } = {
+      gameId: null,
+      gameStatus: null,
+    };
 
-    if (!gameId) {
+    try {
+      gameInfo = await this.gameService.getGameInfo(playerId);
+    } catch (err) {
+      console.error("couldn't fetch the game info", err);
+
+      this.handleNewPlayerConnect(client);
+      return;
+    }
+
+    if (!gameInfo.gameId) {
       // the player was not a part of any game
       client.playerId = playerId;
 
@@ -176,19 +212,19 @@ export class CommunicationService {
         },
       });
     } else {
-      switch (gameStatus) {
+      switch (gameInfo.gameStatus) {
         case GameStatus.WAITING: {
           client.playerId = playerId;
-          client.gameId = gameId;
+          client.gameId = gameInfo.gameId;
 
           // add the player back to the game
-          await this.gameService.addPlayer(playerId, gameId);
+          await this.gameService.addPlayer(playerId, gameInfo.gameId);
 
           // notify others that this player has joined again
           const newPlayerInfo = await this.gameService.getPlayerInfo(playerId);
 
-          await this.pubSubManager.publish(
-            `game:${gameId}`,
+          await this.pubClient.publish(
+            `game:${gameInfo.gameId}`,
             JSON.stringify({
               event: BroadcastEvent.NEW_PLAYER_JOINED,
               payload: {
@@ -201,7 +237,7 @@ export class CommunicationService {
             event: MessageEvent.CONNECT,
             payload: {
               playerId: client.playerId,
-              existingGameId: gameId,
+              existingGameId: gameInfo.gameId,
             },
           });
 
@@ -252,7 +288,7 @@ export class CommunicationService {
 
     const gameId = client.gameId as string; // because the socket is verified, the gameId is known to exist.
 
-    await this.pubSubManager.subscribe(`game:${gameId}`, (message: string) => {
+    await this.subClient.subscribe(`game:${gameId}`, (message: string) => {
       this.send(client, JSON.parse(message));
     });
   }
@@ -321,9 +357,17 @@ export class CommunicationService {
       return;
     }
 
+    // validate this newGameId
+    const validGame = await this.gameService.validateGameId(gameId);
+
+    if (!validGame) {
+      this.sendError(client, "Please enter a valid gameId");
+      return;
+    }
+
     try {
       // ensure that the room size does not cross the MAX_SIZE
-      const currentSize = await this.gameService.getRoomSize(playerId);
+      const currentSize = await this.gameService.getRoomSize(gameId);
 
       if (currentSize > MAX_SIZE) {
         this.sendError(client, "Game is already full");
@@ -343,8 +387,7 @@ export class CommunicationService {
 
       // publish this new player on the game channel
       const newPlayerInfo = await this.gameService.getPlayerInfo(playerId);
-
-      await this.pubSubManager.publish(
+      await this.pubClient.publish(
         `game:${gameId}`,
         JSON.stringify({
           event: BroadcastEvent.NEW_PLAYER_JOINED,
@@ -419,7 +462,7 @@ export class CommunicationService {
       await this.gameService.changeUsername(playerId, newUsername);
 
       // publish the event to notify others
-      await this.pubSubManager.publish(
+      await this.pubClient.publish(
         `game:${client.gameId}`,
         JSON.stringify({
           event: BroadcastEvent.USERNAME_CHANGED,
@@ -466,7 +509,7 @@ export class CommunicationService {
       // Using setInterval for proper countdown
       const countdownInterval = setInterval(async () => {
         // Send current count
-        await this.pubSubManager.publish(
+        await this.pubClient.publish(
           `game:${gameId}`,
           JSON.stringify({
             event: BroadcastEvent.GAME_STARTING,
@@ -485,7 +528,7 @@ export class CommunicationService {
           clearInterval(countdownInterval);
 
           // Game starts
-          await this.pubSubManager.publish(
+          await this.pubClient.publish(
             `game:${gameId}`,
             JSON.stringify({
               event: BroadcastEvent.GAME_STARTED,
@@ -531,7 +574,7 @@ export class CommunicationService {
     }
 
     // broadcast the position to others
-    await this.pubSubManager.publish(
+    await this.pubClient.publish(
       `game:${gameId}`,
       JSON.stringify({
         event: BroadcastEvent.PLAYER_UPDATE,
@@ -590,7 +633,7 @@ export class CommunicationService {
         // broadcast the result
         const gameResult = await this.gameService.getGameResult(gameId);
 
-        await this.pubSubManager.publish(
+        await this.pubClient.publish(
           `game:${gameId}`,
           JSON.stringify({
             event: BroadcastEvent.FINISH_GAME,
