@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 type WebSocketResponse =
   | {
-      event: "healthCheck";
+      event: "health_check";
       payload: {
         message: string;
       };
@@ -57,14 +57,15 @@ export default function useConnectSocket(): [
             console.warn("Health check timed out, conncting may be dead");
             setStatus("failed");
           }, 5000);
-        }
 
-        // send the health check to the server
-        ws.send(
-          JSON.stringify({
-            event: "health_check",
-          }),
-        );
+          // send the health check to the server
+          ws.send(
+            JSON.stringify({
+              event: "health_check",
+              payload: {},
+            }),
+          );
+        }
       }, 10000);
     };
 
@@ -89,7 +90,9 @@ export default function useConnectSocket(): [
         },
       };
 
-      newSocket.send(JSON.stringify(payload));
+      if (newSocket.readyState === WebSocket.OPEN) {
+        newSocket.send(JSON.stringify(payload));
+      }
     };
 
     newSocket.onmessage = (event: MessageEvent) => {
@@ -106,7 +109,7 @@ export default function useConnectSocket(): [
 
       if (data) {
         switch (data.event) {
-          case "healthCheck": {
+          case "health_check": {
             // clear the buffer timeout because the response was received
             if (healthCheckTimeoutRef.current) {
               clearTimeout(healthCheckTimeoutRef.current);

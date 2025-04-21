@@ -27,10 +27,8 @@ export default function useGamePortal() {
         console.error("couldn't parse the backend response", err);
       }
 
-      if (data) {
+      if (data?.event === "create_game" || data?.event === "join_game") {
         navigator(`/game/${data.payload.gameId}`);
-      } else {
-        console.error("server returned null response");
       }
     };
 
