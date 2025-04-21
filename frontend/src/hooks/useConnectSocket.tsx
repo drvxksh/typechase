@@ -1,9 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ConnectionStatus } from "../types";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
 type WebSocketResponse =
+  | {
+      event: "healthCheck";
+      payload: {
+        message: string;
+      };
+    }
   | {
       event: "connect";
       payload: {
@@ -29,24 +35,49 @@ export default function useConnectSocket(): [
 ] {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
+  const healthCheckIntervalRef = useRef<number | null>(null);
+  const healthCheckTimeoutRef = useRef<number | null>(null);
 
-  // TODO add a health check for the frontend and backend
   const navigator = useNavigate();
 
   useEffect(() => {
     const newSocket = new WebSocket("ws://localhost:3000");
     let connectionStatus: ConnectionStatus = "connecting";
 
-    // fail the connection if it was not connected after some given time
-    const timeoutId = setTimeout(() => {
-      if (connectionStatus === "connecting") {
-        setStatus("failed");
+    const startHealthCheck = (ws: WebSocket) => {
+      // clear any existing intervals if any
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
       }
-    }, 5000);
+
+      healthCheckIntervalRef.current = window.setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          // timeout gives another buffer to wait for the health check message. If its still not received, the connection may be broken
+          healthCheckTimeoutRef.current = window.setTimeout(() => {
+            console.warn("Health check timed out, conncting may be dead");
+            setStatus("failed");
+          }, 5000);
+        }
+
+        // send the health check to the server
+        ws.send(
+          JSON.stringify({
+            event: "health_check",
+          }),
+        );
+      }, 10000);
+    };
+
+    const removeHealthCheckListeners = () => {
+      if (healthCheckIntervalRef.current) {
+        clearInterval(healthCheckIntervalRef.current);
+      }
+      if (healthCheckTimeoutRef.current) {
+        clearTimeout(healthCheckTimeoutRef.current);
+      }
+    };
 
     newSocket.onopen = () => {
-      clearTimeout(timeoutId);
-
       // fetch the existing playerId
       const existingPlayerId = localStorage.getItem("playerId");
 
@@ -75,6 +106,16 @@ export default function useConnectSocket(): [
 
       if (data) {
         switch (data.event) {
+          case "healthCheck": {
+            // clear the buffer timeout because the response was received
+            if (healthCheckTimeoutRef.current) {
+              clearTimeout(healthCheckTimeoutRef.current);
+              healthCheckTimeoutRef.current = null;
+            }
+
+            console.log("Connection is alive");
+            break;
+          }
           case "connect": {
             // save the new playerId if it differs from the existing one
             const playerId = data.payload.playerId;
@@ -89,8 +130,12 @@ export default function useConnectSocket(): [
             setStatus(connectionStatus);
             setSocket(newSocket);
 
+            // start the health check after the successfull connection
+            startHealthCheck(newSocket);
+
             // redirect the player if it was part in the middle of a game
             if (data.payload.existingGameId) {
+              toast.info("Redirecting to your game");
               navigator(`/game/${data.payload.existingGameId}`);
             }
 
@@ -115,11 +160,12 @@ export default function useConnectSocket(): [
       connectionStatus = "failed";
       setStatus(connectionStatus);
 
-      clearTimeout(timeoutId);
+      // clean up the timeouts
+      removeHealthCheckListeners();
     };
 
     return () => {
-      clearTimeout(timeoutId);
+      removeHealthCheckListeners();
 
       if (newSocket) {
         newSocket.close();

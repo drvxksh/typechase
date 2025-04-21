@@ -130,6 +130,9 @@ export class CommunicationService {
     const { event, payload } = message;
 
     switch (event) {
+      case MessageEvent.HEALTH_CHECK:
+        await this.handleHealthCheck(client);
+        break;
       case MessageEvent.CONNECT:
         await this.handleConnect(client, payload);
         break;
@@ -161,6 +164,16 @@ export class CommunicationService {
         this.sendError(client, `Unsupported message event: ${event}`);
         break;
     }
+  }
+
+  /** Health check handler for the client */
+  private async handleHealthCheck(client: SocketClient) {
+    this.send(client, {
+      event: MessageEvent.HEALTH_CHECK,
+      payload: {
+        message: "Yes, i am here (atleast for now)",
+      },
+    });
   }
 
   /** Handles connection requests from clients */

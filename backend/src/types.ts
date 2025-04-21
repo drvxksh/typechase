@@ -7,6 +7,7 @@ export interface SocketClient extends WebSocket {
 
 export enum MessageEvent {
   "ERROR" = "error",
+  "HEALTH_CHECK" = "health_check",
   "CONNECT" = "connect",
   "CREATE_GAME" = "create_game",
   "JOIN_GAME" = "join_game",
