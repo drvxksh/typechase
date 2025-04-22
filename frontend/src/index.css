@@ -5,10 +5,9 @@
 @theme {
   --font-heading: Raleway, sans-serif;
   --font-description: Open sans, sans-serif;
+  --font-logo: Courier Prime, monospace;
   --font-poppins: Poppins, sans-serif;
   --font-inter: Inter, sans-serif;
-  --font-roboto: Roboto, sans-serif;
-  --font-courier: Courier Prime, monospace;
 }
 
 .blue-gradient-btn {

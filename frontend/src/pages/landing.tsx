@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useWebSocket } from "../hooks/useWebSocket";
 import backgroundImage from "/hero_background.jpg?url";
-import { Info, ServerCrash } from "lucide-react";
+import { DatabaseZap, Info } from "lucide-react";
 import Logo from "../components/Logo";
 import useGamePortal from "../hooks/useGamePortal";
 
@@ -78,11 +78,11 @@ export default function Landing() {
           <img src={backgroundImage} className="h-full w-full object-cover" />
         </div>
         <section className="flex flex-col items-center gap-5">
-          <header className="flex flex-col items-center justify-center">
-            <h1 className="font-heading blue-gradient-text bg-clip-text text-center text-[40px] font-bold text-transparent sm:text-5xl">
+          <header className="flex flex-col items-center justify-center sm:gap-2">
+            <h1 className="font-heading blue-gradient-text bg-clip-text text-center text-[41px] font-bold text-transparent sm:text-5xl">
               <span className="inline-block">Race Live</span>
             </h1>
-            <h2 className="font-description max-w-2xl text-center text-[15px] font-medium text-zinc-700 sm:text-lg">
+            <h2 className="font-description max-w-2xl text-center text-[14px] font-medium text-zinc-700 sm:text-lg">
               A real-time multiplayer typing game. Join other rooms or create
               your own rooms — no logins, no fuss.
             </h2>
@@ -91,15 +91,15 @@ export default function Landing() {
             (status == "connecting" ? (
               <p className="flex cursor-wait items-center gap-1">
                 <Info className="size-5 text-blue-500" />
-                <span className="font-roboto text-xs text-zinc-600">
+                <span className="font-inter text-xs text-zinc-600 italic">
                   Connecting to the server...
                 </span>
               </p>
             ) : (
               <p className="flex cursor-not-allowed items-center gap-1">
-                <ServerCrash className="size-5 text-red-500" />
-                <span className="font-roboto text-xs text-zinc-600">
-                  Service temporarily unavailable. Please try again later.
+                <DatabaseZap className="size-5 text-red-500" />
+                <span className="font-inter text-xs text-zinc-600 italic">
+                  Server Error. Please try again later.
                 </span>
               </p>
             ))}
