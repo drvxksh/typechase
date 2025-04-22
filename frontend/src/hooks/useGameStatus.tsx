@@ -12,7 +12,16 @@ type WebSocketResponse =
       };
     }
   | {
-      event: "start_game";
+      event: "game_starting";
+      payload: {
+        count: string;
+      };
+    }
+  | {
+      event: "game_start";
+      payload: {
+        message: string;
+      };
     }
   | {
       event: "leave_game";
@@ -21,6 +30,7 @@ type WebSocketResponse =
 /** Custom hook to fetch the status of the game. redirects to the landing page if the gameId is invalid */
 export default function useGameStatus(gameId: string | undefined) {
   const { socket, sendMessage } = useSocketMessaging();
+  const [count, setCount] = useState<string>("");
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
 
   const navigator = useNavigate();
@@ -57,6 +67,17 @@ export default function useGameStatus(gameId: string | undefined) {
 
             break;
           }
+          case "game_starting": {
+            setGameStatus(GameStatus.STARTING);
+
+            // update the count
+            setCount(data.payload.count);
+            break;
+          }
+          case "game_start": {
+            setGameStatus(GameStatus.IN_PROGRESS);
+            break;
+          }
         }
       }
     };
@@ -70,5 +91,5 @@ export default function useGameStatus(gameId: string | undefined) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, sendMessage, gameId]);
 
-  return { gameStatus };
+  return { gameStatus, count };
 }

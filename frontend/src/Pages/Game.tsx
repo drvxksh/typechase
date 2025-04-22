@@ -2,7 +2,7 @@ import { Copy, Crown } from "lucide-react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
 import Logo from "../components/Logo";
-import useGameStatus from "../hooks/useGameStatus";
+import useGameStatus from "../hooks/useGameStatus"; // Ensure this hook is correctly implemented and imported
 import useLobbyManagement from "../hooks/useLobbyManagement";
 import { GameStatus } from "../types";
 import { useRef } from "react";
@@ -12,28 +12,27 @@ export default function Game() {
   const params = useParams();
   const gameId = params.gameId;
 
-  // return the default status of the game. Redirect to the landing if the game is invalid
-  const { gameStatus } = useGameStatus(gameId);
-
   return (
     <section className="h-full px-4">
       <header className="p-2">
         <Logo />
       </header>
-      {renderGameContent(gameStatus)}
+      <GameContent gameId={gameId} />
     </section>
   );
 }
 
 /** A helper function that returns the component based on the status of the game */
-function renderGameContent(gameStatus: GameStatus | null) {
+function GameContent({ gameId }: { gameId: string | undefined }) {
+  const { gameStatus, count } = useGameStatus(gameId);
+
   switch (gameStatus) {
     case GameStatus.WAITING:
       return <LobbyComponent />;
     case GameStatus.STARTING:
-      return <div>The game is about to start</div>;
+      return <GameStarting count={count} />;
     case GameStatus.IN_PROGRESS:
-      return <div>The game is in progress</div>;
+      return <GameInProgress />;
     case GameStatus.COMPLETED:
       return <div>Game results</div>;
     default:
@@ -137,4 +136,16 @@ function RenderPlayers() {
       </div>
     </section>
   );
+}
+
+function GameStarting({ count }: { count: string }) {
+  return <section>starting in {count}</section>;
+}
+
+function GameInProgress() {
+  // periodically send the player position
+  // calculate the wpm, accuracy and time
+  // if i finish the race, stop the cursor for me
+  // when everyone finishes, show the results page
+  return <section>Game has started</section>;
 }

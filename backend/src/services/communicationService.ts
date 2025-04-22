@@ -27,10 +27,10 @@ export class CommunicationService {
     this.subClient = createClient();
 
     this.pubClient.on("error", (err) =>
-      console.error("publisher client error:", err),
+      console.error("publisher client error:", err)
     );
     this.subClient.on("error", (err) =>
-      console.error("subscriber client error:", err),
+      console.error("subscriber client error:", err)
     );
 
     this.pubClient.connect();
@@ -55,7 +55,7 @@ export class CommunicationService {
         if (socketClient.playerId && socketClient.gameId) {
           const updatedHostId = await this.gameService.removePlayerFromGame(
             socketClient.playerId,
-            socketClient.gameId,
+            socketClient.gameId
           );
 
           if (updatedHostId) {
@@ -67,7 +67,7 @@ export class CommunicationService {
                   updatedHostId,
                   playerLeftId: socketClient.playerId,
                 },
-              }),
+              })
             );
           }
         }
@@ -113,15 +113,15 @@ export class CommunicationService {
 
   private async processMessage(
     client: SocketClient,
-    message: WebSocketMessage,
+    message: WebSocketMessage
   ): Promise<void> {
     // sanitize the incoming request.
     if (!message || !message.event || !message.payload) {
       const missingField = !message
         ? "message"
         : !message.event
-          ? "event"
-          : "payload";
+        ? "event"
+        : "payload";
       console.warn(`Incomplete request: ${missingField} is missing`);
       this.sendError(client, `Something went wrong...`);
       return;
@@ -152,7 +152,7 @@ export class CommunicationService {
         this.handleChangeUsername(client, payload);
         break;
       case MessageEvent.START_GAME:
-        this.handleStartGame(client, payload);
+        this.handleStartGame(client);
         break;
       case MessageEvent.PLAYER_UPDATE:
         this.handlePlayerUpdate(client, payload);
@@ -179,7 +179,7 @@ export class CommunicationService {
   /** Handles connection requests from clients */
   private async handleConnect(
     client: SocketClient,
-    payload: any,
+    payload: any
   ): Promise<void> {
     const { playerId } = payload;
 
@@ -243,7 +243,7 @@ export class CommunicationService {
               payload: {
                 newPlayerInfo,
               },
-            }),
+            })
           );
 
           this.send(client, {
@@ -322,7 +322,7 @@ export class CommunicationService {
     if (gameId) {
       this.sendError(client, "Leave the existing game to create a new one");
       console.warn(
-        "failed to create a new game -> player was already part of a game",
+        "failed to create a new game -> player was already part of a game"
       );
 
       return;
@@ -345,7 +345,7 @@ export class CommunicationService {
   /** Joins the client to a game room if the max size has not been exceeded and publishes it to the other clients */
   private async handleJoinGame(
     client: SocketClient,
-    payload: any,
+    payload: any
   ): Promise<void> {
     const playerId = client.playerId;
     const existingGameId = client.gameId;
@@ -407,7 +407,7 @@ export class CommunicationService {
           payload: {
             newPlayerInfo,
           },
-        }),
+        })
       );
 
       await this.subscribeToGame(client);
@@ -420,7 +420,7 @@ export class CommunicationService {
   /** Verifies whether the incoming gameId is falid or not. Returns false if no gameId was received */
   private async handleCheckGameId(
     client: SocketClient,
-    payload: any,
+    payload: any
   ): Promise<void> {
     this.send(client, {
       event: MessageEvent.CHECK_GAME_ID,
@@ -456,7 +456,7 @@ export class CommunicationService {
   /** Changes the player username and notifies other clients */
   private async handleChangeUsername(
     client: SocketClient,
-    payload: any,
+    payload: any
   ): Promise<void> {
     if (!this.verifySocket(client)) {
       return;
@@ -485,7 +485,7 @@ export class CommunicationService {
               playerName: newUsername,
             },
           },
-        }),
+        })
       );
     } catch (err) {
       console.error("failed to change the username ->", err);
@@ -493,10 +493,7 @@ export class CommunicationService {
     }
   }
 
-  private async handleStartGame(
-    client: SocketClient,
-    payload: any,
-  ): Promise<void> {
+  private async handleStartGame(client: SocketClient): Promise<void> {
     if (!this.verifySocket(client)) {
       return;
     }
@@ -528,9 +525,8 @@ export class CommunicationService {
             event: BroadcastEvent.GAME_STARTING,
             payload: {
               count,
-              message: count === 0 ? "Go!" : `Starting in ${count}...`,
             },
-          }),
+          })
         );
 
         // Decrement count
@@ -548,12 +544,12 @@ export class CommunicationService {
               payload: {
                 message: "Game started!",
               },
-            }),
+            })
           );
 
           await this.gameService.updateGameStatus(
             gameId,
-            GameStatus.IN_PROGRESS,
+            GameStatus.IN_PROGRESS
           );
         }
       }, 1000);
@@ -565,13 +561,10 @@ export class CommunicationService {
 
   /**
    * Handles position updates from clients during a game
-   * @param client - The WebSocket client sending the position update
-   * @param payload - The message payload containing position, wpm and accuracy
-   * @returns A Promise that resolves when the position update is processed
    */
   private async handlePlayerUpdate(
     client: SocketClient,
-    payload: any,
+    payload: any
   ): Promise<void> {
     if (!this.verifySocket(client)) {
       return;
@@ -595,7 +588,7 @@ export class CommunicationService {
           playerId,
           position: payload.position,
         },
-      }),
+      })
     );
   }
 
@@ -607,7 +600,7 @@ export class CommunicationService {
    */
   private async handleFinishGame(
     client: SocketClient,
-    payload: any,
+    payload: any
   ): Promise<void> {
     if (!this.verifySocket(client)) {
       return;
@@ -624,7 +617,7 @@ export class CommunicationService {
     ) {
       this.sendError(
         client,
-        "Incomplete request: payload is missing or has invalid wpm, accuracy, or time",
+        "Incomplete request: payload is missing or has invalid wpm, accuracy, or time"
       );
       return;
     }
@@ -653,7 +646,7 @@ export class CommunicationService {
             payload: {
               results: gameResult.players,
             },
-          }),
+          })
         );
       }
     } catch (err) {
