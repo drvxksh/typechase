@@ -45,7 +45,7 @@ function RenderGameByStatus() {
 /** Rendered when the state of the game is "waiting" */
 function GameWaiting({ gameId }: { gameId: string }) {
   const { startGame, leaveGame, changeUsername, lobby } = useLobbyManagement();
-  // TODO implement player name changing
+
   const handleCopyInviteCode = async () => {
     const copyPromise = navigator.clipboard.writeText(gameId);
     toast.promise(copyPromise, {
@@ -99,10 +99,11 @@ function GameWaiting({ gameId }: { gameId: string }) {
               <div className="flex items-center gap-3">
                 <input
                   key={item.playerId}
-                  value={item.playerName}
+                  defaultValue={item.playerName}
                   className="font-poppins w-full rounded-md p-1 text-sm text-zinc-800 focus:outline-none"
                   readOnly={currentUserId !== item.playerId}
-                  ref={handleChangeUsername}
+                  ref={playerNameInputRef}
+                  onFocus={handleChangeUsername}
                 />
                 {lobby.hostId === item.playerId && <Crown className="size-5" />}
               </div>
