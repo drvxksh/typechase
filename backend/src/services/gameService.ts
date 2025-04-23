@@ -129,6 +129,13 @@ export class GameService {
     return this.storageService.updateGameStatus(gameId, newState);
   }
 
+  public async getGameText(gameId: string) {
+    return this.storageService.getGameText(gameId);
+  }
+
+  public async getGamePlayers(gameId: string) {
+    return this.storageService.getGamePlayers(gameId);
+  }
   /**
    * Marks a game as finished for a player with the provided data
    * @param playerId The unique identifier of the player who finished

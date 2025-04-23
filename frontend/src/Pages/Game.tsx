@@ -5,7 +5,8 @@ import Logo from "../components/Logo";
 import useGameStatus from "../hooks/useGameStatus";
 import useLobbyManagement from "../hooks/useLobbyManagement";
 import { GameStatus } from "../types";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import useGameInProgressManagement from "../hooks/useGameInProgressManagement";
 
 export default function Game() {
   return (
@@ -141,9 +142,148 @@ function GameStarting({ count }: { count: string }) {
 }
 
 function GameInProgress() {
-  // periodically send the player position
-  // calculate the wpm, accuracy and time
-  // if i finish the race, stop the cursor for me
-  // when everyone finishes, show the results page
-  return <section>Game has started</section>;
+  const { gameText, sendUpdatedPosition, players, gameStartTime } =
+    useGameInProgressManagement();
+
+  const [userInput, setUserInput] = useState("");
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
+
+  const currentPlayerId = localStorage.getItem("playerId");
+
+  // update the elapsed elapsedTime
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (gameStartTime) {
+        setElapsedTime((Date.now() - gameStartTime) / 1000);
+      }
+    }, 100);
+
+    return () => clearInterval(timer);
+  }, [gameStartTime]);
+
+  // periodically send in the updated position of the client
+  useEffect(() => {
+    const currentPosition = userInput.length;
+    sendUpdatedPosition(currentPosition);
+
+    const intervalId = setInterval(() => {
+      sendUpdatedPosition(userInput.length);
+    }, 5000); // send every 5 seconds
+
+    return () => clearInterval(intervalId);
+  }, [userInput, sendUpdatedPosition]);
+
+  // focus the textarea when this component loads/mounts
+  useEffect(() => {
+    if (textAreaRef.current) {
+      textAreaRef.current.focus();
+    }
+  }, []);
+
+  // update the input value
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setUserInput(e.target.value);
+  };
+
+  // a custom-char renderer for distinguishing between other characters
+  const renderText = () => {
+    return gameText.split("").map((char, index) => {
+      let className = "text-zinc-400"; // non typed text
+
+      if (index < userInput.length) {
+        // character has been typed
+        className =
+          userInput[index] === char
+            ? "text-black" // correctly typed
+            : "text-red-500"; // incorrectly typed
+      } else if (index === userInput.length) {
+        className = "text-zinc-400 border-b-2 border-blue-500 animate-pulse"; // sort of a typing indicator
+      }
+
+      return (
+        <span key={index} className={className}>
+          {char}
+        </span>
+      );
+    });
+  };
+
+  const calculateProgress = (position: number) => {
+    return (position / gameText.length) * 100;
+  };
+
+  const calculateWPM = (position: number, elapsedTimeSeconds: number) => {
+    if (elapsedTimeSeconds === 0) return 0;
+
+    const words = position / 5; // a word is 5 chars on average
+    const minutes = elapsedTimeSeconds / 60;
+    return Math.round(words / minutes);
+  };
+
+  const renderProgressBars = () => {
+    return Object.values(players).map((player) => {
+      const progress = calculateProgress(player.position);
+
+      // Check if this player is the current player using the playerId field
+      const isCurrentPlayer =
+        currentPlayerId && player.playerId === currentPlayerId;
+
+      const wpm = calculateWPM(player.position, elapsedTime);
+
+      return (
+        <div key={player.playerId} className="mb-4">
+          <div className="mb-1 flex items-center justify-between">
+            <div className="flex items-center">
+              {isCurrentPlayer && <span className="mr-2 text-blue-500">►</span>}
+              <span
+                className={`font-semibold ${isCurrentPlayer ? "text-blue-600" : "text-gray-700"}`}
+              >
+                {player.playerName || `Player ${player.playerId.slice(0, 4)}`}
+              </span>
+            </div>
+            <div className="flex items-center">
+              <span className="mr-3 rounded bg-gray-100 px-2 py-1 text-xs">
+                {wpm} WPM
+              </span>
+              <span className="text-xs text-gray-500">
+                {Math.round(progress)}%
+              </span>
+            </div>
+          </div>
+          <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
+            <div
+              className={`h-full rounded-full ${isCurrentPlayer ? "bg-blue-500" : "bg-gray-500"}`}
+              style={{
+                width: `${progress}%`,
+                transition: "width 0.3s ease-in-out",
+              }}
+            ></div>
+          </div>
+        </div>
+      );
+    });
+  };
+
+  return (
+    <section className="mt-[15vh] w-full">
+      <div className="relative font-mono text-lg leading-relaxed">
+        <div className="rounded p-4 whitespace-pre-wrap outline outline-zinc-200">
+          {renderText()}
+        </div>
+        <textarea
+          ref={textAreaRef}
+          value={userInput}
+          onChange={handleInputChange}
+          spellCheck={false}
+          className="absolute top-0 left-0 h-full w-full resize-none p-4 opacity-0 outline-none"
+        />
+      </div>
+
+      <div className="mt-8 rounded-lg bg-white p-4 shadow">
+        <h3 className="mb-4 text-lg font-bold">Race Progress</h3>
+        {renderProgressBars()}
+      </div>
+    </section>
+  );
 }

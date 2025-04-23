@@ -305,6 +305,30 @@ export class StorageService {
     await this.saveGameObj(gameObj);
   }
 
+  public async getGameText(gameId: string) {
+    const gameObj = await this.getGameObj(gameId);
+
+    return gameObj.gameText;
+  }
+
+  public async getGamePlayers(gameId: string) {
+    const gameObj = await this.getGameObj(gameId);
+
+    let players = [];
+
+    for (const playerId of gameObj.playerIds) {
+      const playerObj = await this.getPlayerObj(playerId);
+
+      players.push({
+        playerId: playerObj.id,
+        playerName: playerObj.name,
+        position: 0,
+      });
+    }
+
+    return players;
+  }
+
   /**
    * Records a player's game completion data and the game result object.
    * @throws Error if the specified game or player with that id does not exist

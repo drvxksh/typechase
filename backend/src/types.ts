@@ -14,9 +14,11 @@ export enum MessageEvent {
   "GET_LOBBY" = "get_lobby",
   "CHANGE_USERNAME" = "change_username",
   "START_GAME" = "start_game",
+  "GET_GAME_PLAYERS" = "get_game_players",
   "PLAYER_UPDATE" = "player_update",
   "FINISH_GAME" = "finish_game",
   "CHECK_GAME_ID" = "check_game_id",
+  "GET_GAME_TEXT" = "get_game_text",
 }
 
 export interface WebSocketMessage {

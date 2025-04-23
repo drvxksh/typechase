@@ -76,6 +76,9 @@ export default function useGameStatus(gameId: string | undefined) {
           }
           case "game_start": {
             setGameStatus(GameStatus.IN_PROGRESS);
+
+            // fetch the game text for the game
+            sendMessage("get_game_text");
             break;
           }
         }
