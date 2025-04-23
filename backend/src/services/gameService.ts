@@ -1,3 +1,4 @@
+import { loremIpsum } from "lorem-ipsum";
 import { FinishGamePayload, Game, GameResult, GameStatus } from "../types";
 import { StorageService } from "./storageService";
 import { v4 as uuid } from "uuid";
@@ -38,13 +39,21 @@ export class GameService {
 
   /** Creates a new game with the specified user as host */
   public async createGame(hostId: string) {
+    const gameText = loremIpsum({
+      count: 3,
+      units: "sentences",
+      sentenceLowerBound: 5,
+      sentenceUpperBound: 15,
+      format: "plain",
+    });
+
     // create the new game object
     const newGame: Game = {
       id: uuid(),
       hostId,
       playerIds: [], // the current host will be added by the addPlayer function
       status: GameStatus.WAITING,
-      gameText: "", // TODO add some real text
+      gameText,
       createdAt: new Date(),
     };
 

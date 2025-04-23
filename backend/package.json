@@ -14,6 +14,7 @@
     "@types/express": "^5.0.0",
     "@types/ws": "^8.5.14",
     "express": "^4.21.2",
+    "lorem-ipsum": "^2.0.8",
     "redis": "^4.7.0",
     "uuid": "^11.1.0",
     "ws": "^8.18.1"
