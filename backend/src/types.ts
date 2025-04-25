@@ -19,6 +19,9 @@ export enum MessageEvent {
   "FINISH_GAME" = "finish_game",
   "CHECK_GAME_ID" = "check_game_id",
   "GET_GAME_TEXT" = "get_game_text",
+  "GET_GAME_RESULT" = "get_game_result",
+  "RESTART_GAME" = "restart_game",
+  "LEAVE_GAME" = "leave_game",
 }
 
 export interface WebSocketMessage {
@@ -30,10 +33,12 @@ export enum BroadcastEvent {
   "NEW_PLAYER_JOINED" = "new_player_joined",
   "USERNAME_CHANGED" = "username_changed",
   "GAME_STARTING" = "game_starting",
+  "GAME_STARTING_COUNTDOWN" = "game_starting_countdown",
   "GAME_STARTED" = "game_start",
   "PLAYER_UPDATE" = "player_update",
   "FINISH_GAME" = "finish_game",
   "PLAYER_LEFT" = "player_left",
+  "GAME_WAITING" = "game_waiting",
 }
 
 export interface BroadcastMessage {

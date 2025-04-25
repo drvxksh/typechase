@@ -13,9 +13,6 @@ type WebSocketResponse =
     }
   | {
       event: "game_starting";
-      payload: {
-        count: string;
-      };
     }
   | {
       event: "game_start";
@@ -25,6 +22,9 @@ type WebSocketResponse =
     }
   | {
       event: "leave_game";
+    }
+  | {
+      event: "game_waiting";
     };
 
 /** Custom hook to fetch the status of the game. redirects to the landing page if the gameId is invalid */
@@ -69,9 +69,6 @@ export default function useGameStatus(gameId: string | undefined) {
           }
           case "game_starting": {
             setGameStatus(GameStatus.STARTING);
-
-            // update the count
-            setCount(data.payload.count);
             break;
           }
           case "game_start": {
@@ -79,6 +76,10 @@ export default function useGameStatus(gameId: string | undefined) {
 
             // fetch the game text for the game
             sendMessage("get_game_text");
+            break;
+          }
+          case "game_waiting": {
+            setGameStatus(GameStatus.WAITING);
             break;
           }
         }

@@ -102,7 +102,9 @@ export class StorageService {
   // TODO set a TTL to this
   /** Fetches a game result object. Creates a new one if the specified gameId was not found */
   private async getGameResultObj(gameId: string) {
-    const gameResultExists = await this.redisClient.exists(`gameId:${gameId}`);
+    const gameResultExists = await this.redisClient.exists(
+      `gameResult:${gameId}`,
+    );
 
     if (gameResultExists !== 1) {
       const gameResultObj: GameResult = {
@@ -368,11 +370,29 @@ export class StorageService {
     return gameObj.playerIds.length === gameResultObj.players.length;
   }
 
+  public async markGameFinished(gameId: string) {
+    const gameObj = await this.getGameObj(gameId);
+
+    gameObj.status === GameStatus.COMPLETED;
+
+    await this.saveGameObj(gameObj);
+  }
+
   /**
    * Retrieves the game result data for a specific game.
    * @throws Error if the specified game with that id does not exist
    */
-  public async getGameResult(gameId: string): Promise<GameResult> {
-    return this.getGameResultObj(gameId);
+  public async getGameResult(gameId: string) {
+    const gameResultObj = await this.getGameResultObj(gameId);
+
+    return gameResultObj.players;
+  }
+
+  public async restartGame(gameId: string) {
+    const gameObj = await this.getGameObj(gameId);
+
+    gameObj.status = GameStatus.WAITING;
+
+    await this.saveGameObj(gameObj);
   }
 }

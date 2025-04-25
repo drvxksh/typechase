@@ -165,6 +165,15 @@ export class CommunicationService {
       case MessageEvent.FINISH_GAME:
         this.handleFinishGame(client, payload);
         break;
+      case MessageEvent.GET_GAME_RESULT:
+        this.handleGetGameResult(client);
+        break;
+      case MessageEvent.RESTART_GAME:
+        this.handleRestartGame(client); // TODO ensure that this is only initiated by the host. similarly check start game as well
+        break;
+      case MessageEvent.LEAVE_GAME:
+        this.handleLeaveGame(client);
+        break;
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
         break;
@@ -518,6 +527,15 @@ export class CommunicationService {
       // update the state of the room
       await this.gameService.updateGameStatus(gameId, GameStatus.STARTING);
 
+      // broadcast the updated game status.
+      await this.pubClient.publish(
+        `game:${gameId}`,
+        JSON.stringify({
+          event: BroadcastEvent.GAME_STARTING,
+          payload: {},
+        }),
+      );
+
       // start the countdown and broadcast
       let count = 10;
 
@@ -527,7 +545,7 @@ export class CommunicationService {
         await this.pubClient.publish(
           `game:${gameId}`,
           JSON.stringify({
-            event: BroadcastEvent.GAME_STARTING,
+            event: BroadcastEvent.GAME_STARTING_COUNTDOWN,
             payload: {
               count,
             },
@@ -689,16 +707,15 @@ export class CommunicationService {
       const gameFinished = await this.gameService.checkGameFinished(gameId);
 
       if (gameFinished) {
-        // broadcast the result
-        const gameResult = await this.gameService.getGameResult(gameId);
+        // update the game status
+        await this.gameService.markGameFinished(gameId);
 
+        // broadcast the players that the game is over.
         await this.pubClient.publish(
           `game:${gameId}`,
           JSON.stringify({
             event: BroadcastEvent.FINISH_GAME,
-            payload: {
-              results: gameResult.players,
-            },
+            payload: {},
           }),
         );
       }
@@ -706,5 +723,78 @@ export class CommunicationService {
       console.error("Error finishing game:", err);
       this.sendError(client, "Failed to record game results");
     }
+  }
+
+  private async handleGetGameResult(client: SocketClient) {
+    // ensure that this connection is valid
+    if (!this.verifySocket(client)) {
+      return;
+    }
+
+    const gameId = client.gameId as string;
+
+    // fetch the game result
+    const players = await this.gameService.getGameResult(gameId);
+
+    // send it back to the client
+    this.send(client, {
+      event: MessageEvent.GET_GAME_RESULT,
+      payload: {
+        players,
+      },
+    });
+  }
+
+  private async handleRestartGame(client: SocketClient) {
+    // verify this client
+    if (!this.verifySocket(client)) {
+      return;
+    }
+
+    const gameId = client.gameId as string;
+
+    // to restart the game, change the status back to waiting and broadcast to others
+    try {
+      await this.gameService.restartGame(gameId);
+
+      await this.pubClient.publish(
+        `game:${gameId}`,
+        JSON.stringify(
+          JSON.stringify({
+            event: BroadcastEvent.GAME_WAITING,
+            payload: {},
+          }),
+        ),
+      );
+    } catch (err) {
+      console.error("couldn't restart the game", err);
+      this.sendError(client, "Something went wrong...");
+
+      return;
+    }
+  }
+
+  private async handleLeaveGame(client: SocketClient) {
+    //verify the socket.
+    if (!this.verifySocket(client)) {
+      return;
+    }
+
+    // remove this player from the game.
+    const playerId = client.playerId as string;
+    const gameId = client.gameId as string;
+
+    await this.gameService.removePlayerFromGame(playerId, gameId);
+
+    // update others that this player left
+    await this.pubClient.publish(
+      `game:${gameId}`,
+      JSON.stringify({
+        event: BroadcastEvent.PLAYER_LEFT,
+        payload: {
+          playerId,
+        },
+      }),
+    );
   }
 }

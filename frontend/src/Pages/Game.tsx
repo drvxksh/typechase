@@ -7,6 +7,8 @@ import useLobbyManagement from "../hooks/useLobbyManagement";
 import { GameStatus } from "../types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useGameInProgressManagement from "../hooks/useGameInProgressManagement";
+import useGameStartingManagement from "../hooks/useGameStartingManagement";
+// import useGameCompletedManagement from "../hooks/useGameCompletedManagement";
 
 export default function Game() {
   return (
@@ -26,18 +28,17 @@ function RenderGameByStatus() {
   const gameId = params.gameId;
 
   // validate the gameId and fetch the status and count in case the game is starting
-  const { gameStatus, count } = useGameStatus(gameId);
-  // const gameStatus = "starting";
+  const { gameStatus } = useGameStatus(gameId);
 
   switch (gameStatus) {
     case GameStatus.WAITING:
       return <GameWaiting gameId={gameId as string} />;
     case GameStatus.STARTING:
-      return <GameStarting count={count} />;
+      return <GameStarting />;
     case GameStatus.IN_PROGRESS:
       return <GameInProgress />;
     case GameStatus.COMPLETED:
-      return <div>Game results</div>;
+      return <GameCompleted />;
     default:
       return <div>Loading...</div>;
   }
@@ -131,7 +132,9 @@ function GameWaiting({ gameId }: { gameId: string }) {
   );
 }
 
-function GameStarting({ count }: { count: string }) {
+function GameStarting() {
+  const { count } = useGameStartingManagement();
+
   return (
     <section className="flex h-[25vh] items-center justify-center">
       <h1 className="font-heading text-3xl font-bold sm:text-4xl">
@@ -325,4 +328,10 @@ function GameInProgress() {
       </div>
     </section>
   );
+}
+
+function GameCompleted() {
+  // const { result } = useGameCompletedManagement();
+
+  return <section>The game is now completed</section>;
 }

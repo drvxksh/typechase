@@ -162,13 +162,21 @@ export class GameService {
     return this.storageService.checkGameFinished(gameId);
   }
 
+  public markGameFinished(gameId: string) {
+    return this.storageService.markGameFinished(gameId);
+  }
+
   /**
    * Retrieves the final game results including player scores and statistics
    * @param gameId The unique identifier of the game to get results for
    * @returns A Promise resolving to a GameResult object containing player scores and performance data
    * @throws Error if the specified game with that id does not exist
    */
-  public getGameResult(gameId: string): Promise<GameResult> {
+  public getGameResult(gameId: string) {
     return this.storageService.getGameResult(gameId);
+  }
+
+  public restartGame(gameId: string) {
+    return this.storageService.restartGame(gameId);
   }
 }
