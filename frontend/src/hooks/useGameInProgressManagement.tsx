@@ -78,5 +78,13 @@ export default function useGameInProgressManagement() {
     [sendMessage],
   );
 
-  return { gameText, sendUpdatedPosition, players, gameStartTime };
+  const finishGame = (wpm: number, accuracy: number, time: number) => {
+    sendMessage("finish_game", {
+      wpm,
+      accuracy,
+      time,
+    });
+  };
+
+  return { gameText, sendUpdatedPosition, players, gameStartTime, finishGame };
 }

@@ -5,7 +5,7 @@ import Logo from "../components/Logo";
 import useGameStatus from "../hooks/useGameStatus";
 import useLobbyManagement from "../hooks/useLobbyManagement";
 import { GameStatus } from "../types";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useGameInProgressManagement from "../hooks/useGameInProgressManagement";
 
 export default function Game() {
@@ -142,7 +142,7 @@ function GameStarting({ count }: { count: string }) {
 }
 
 function GameInProgress() {
-  const { gameText, sendUpdatedPosition, players, gameStartTime } =
+  const { gameText, sendUpdatedPosition, players, gameStartTime, finishGame } =
     useGameInProgressManagement();
 
   const [userInput, setUserInput] = useState("");
@@ -151,7 +151,7 @@ function GameInProgress() {
 
   const currentPlayerId = localStorage.getItem("playerId");
 
-  // update the elapsed elapsedTime
+  // update the elapsedTime
   useEffect(() => {
     const timer = setInterval(() => {
       if (gameStartTime) {
@@ -165,14 +165,18 @@ function GameInProgress() {
   // periodically send in the updated position of the client
   useEffect(() => {
     const currentPosition = userInput.length;
-    sendUpdatedPosition(currentPosition);
 
-    const intervalId = setInterval(() => {
-      sendUpdatedPosition(userInput.length);
-    }, 5000); // send every 5 seconds
+    // only send the updates if the game is still in progress
+    if (currentPosition < gameText.length) {
+      sendUpdatedPosition(currentPosition);
 
-    return () => clearInterval(intervalId);
-  }, [userInput, sendUpdatedPosition]);
+      const intervalId = setInterval(() => {
+        sendUpdatedPosition(userInput.length);
+      }, 5000); // send every 5 seconds
+
+      return () => clearInterval(intervalId);
+    }
+  }, [userInput, sendUpdatedPosition, gameText.length]);
 
   // focus the textarea when this component loads/mounts
   useEffect(() => {
@@ -181,13 +185,42 @@ function GameInProgress() {
     }
   }, []);
 
+  // calculate the accuracy
+  const calculateAccuracy = (input: string, target: string) => {
+    if (input.length === 0) return 100;
+
+    let correctChars = 0;
+    const inputLength = Math.min(input.length, target.length);
+
+    for (let i = 0; i < inputLength; i++) {
+      if (input[i] === target[i]) {
+        correctChars++;
+      }
+    }
+
+    return Math.round((correctChars / inputLength) * 100);
+  };
+
   // update the input value
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setUserInput(e.target.value);
+    // don't accept more input if the game is finished
+    if (userInput.length >= gameText.length) return;
+
+    const newInput = e.target.value;
+    setUserInput(newInput);
+
+    // check if the player has finished the text
+    if (newInput.length >= gameText.length) {
+      // calculate the metrics and send to finishGame
+      const finalWpm = calculateWPM(newInput.length, elapsedTime);
+      const finalAccuracy = calculateAccuracy(newInput, gameText);
+
+      finishGame(finalWpm, finalAccuracy, elapsedTime);
+    }
   };
 
   // a custom-char renderer for distinguishing between other characters
-  const renderText = () => {
+  const renderText = useMemo(() => {
     return gameText.split("").map((char, index) => {
       let className = "text-zinc-400"; // non typed text
 
@@ -207,21 +240,27 @@ function GameInProgress() {
         </span>
       );
     });
-  };
+  }, [gameText, userInput]);
 
-  const calculateProgress = (position: number) => {
-    return (position / gameText.length) * 100;
-  };
+  const calculateProgress = useCallback(
+    (position: number) => {
+      return (position / gameText.length) * 100;
+    },
+    [gameText.length],
+  );
 
-  const calculateWPM = (position: number, elapsedTimeSeconds: number) => {
-    if (elapsedTimeSeconds === 0) return 0;
+  const calculateWPM = useCallback(
+    (position: number, elapsedTimeSeconds: number) => {
+      if (elapsedTimeSeconds === 0) return 0;
 
-    const words = position / 5; // a word is 5 chars on average
-    const minutes = elapsedTimeSeconds / 60;
-    return Math.round(words / minutes);
-  };
+      const words = position / 5; // a word is 5 chars on average
+      const minutes = elapsedTimeSeconds / 60;
+      return Math.round(words / minutes);
+    },
+    [],
+  );
 
-  const renderProgressBars = () => {
+  const renderProgressBars = useMemo(() => {
     return Object.values(players).map((player) => {
       const progress = calculateProgress(player.position);
 
@@ -263,13 +302,13 @@ function GameInProgress() {
         </div>
       );
     });
-  };
+  }, [calculateWPM, calculateProgress, currentPlayerId, elapsedTime, players]);
 
   return (
     <section className="mt-[15vh] w-full">
       <div className="relative font-mono text-lg leading-relaxed">
         <div className="rounded p-4 whitespace-pre-wrap outline outline-zinc-200">
-          {renderText()}
+          {renderText}
         </div>
         <textarea
           ref={textAreaRef}
@@ -282,7 +321,7 @@ function GameInProgress() {
 
       <div className="mt-8 rounded-lg bg-white p-4 shadow">
         <h3 className="mb-4 text-lg font-bold">Race Progress</h3>
-        {renderProgressBars()}
+        {renderProgressBars}
       </div>
     </section>
   );
