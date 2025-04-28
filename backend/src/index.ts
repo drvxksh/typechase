@@ -7,9 +7,8 @@ const PORT = 3000;
 const app = express();
 const server = http.createServer(app);
 
+// Attaches the server to the communication service.
 CommunicationService.initialize(server);
-
-app.use(express.json());
 
 app.get("/", (req, res) => {
   res.send("The server is online!");

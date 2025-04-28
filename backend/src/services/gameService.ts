@@ -1,7 +1,14 @@
 import { loremIpsum } from "lorem-ipsum";
-import { FinishGamePayload, Game, GameResult, GameStatus } from "../types";
-import { StorageService } from "./storageService";
 import { v4 as uuid } from "uuid";
+import {
+  FinishGamePayload,
+  Game,
+  GameInfo,
+  GameResult,
+  GameStatus,
+  Player,
+} from "../types";
+import { StorageService } from "./storageService";
 
 /** Manages game/player related operations */
 export class GameService {
@@ -9,6 +16,40 @@ export class GameService {
 
   public constructor() {
     this.storageService = StorageService.getInstance();
+  }
+
+  /**
+   * Removes the given player from the given game and returns the updated hostId.
+   * @throws if the given gameId does not exist
+   */
+  public async removePlayerFromGame(
+    playerId: string | undefined,
+    gameId: string | undefined,
+  ) {
+    // if the player was a part of the game, remove it.
+    if (playerId && gameId) {
+      const gameObj = await this.storageService.getGameObj(gameId);
+
+      // the host is the only player of the game
+      if (gameObj.hostId === playerId && gameObj.playerIds.length === 1) {
+        await this.storageService.deleteGameObj(gameId);
+        return null;
+      } else if (gameObj.hostId === playerId) {
+        // there are other players in the game other than the host
+        gameObj.playerIds = gameObj.playerIds.filter((id) => id !== playerId);
+        gameObj.hostId = gameObj.playerIds[0];
+      } else {
+        // any other player but not the host
+        gameObj.playerIds = gameObj.playerIds.filter((id) => id !== playerId);
+      }
+
+      await this.storageService.saveGameObj(gameObj);
+
+      // return the updated host of the game.
+      return gameObj.hostId;
+    }
+
+    return null;
   }
 
   /** Validates whether the given playerId exists or not */
@@ -21,24 +62,114 @@ export class GameService {
     return this.storageService.validateGameId(gameId);
   }
 
-  /**
-   * Returns the gameId and status for the given playerId
-   * @throws if the given playerId has no user or the player has an invalid gameId
-   */
+  /** Validates whether the given gameResultId exists or not */
+  public async validateGameResultId(gameResultId: string) {
+    return this.storageService.validateGameResultId(gameResultId);
+  }
+
+  /** Returns the gameId and gameStatus for the game the give player is a part of. Returns null values otherwise */
   public async getGameInfo(playerId: string) {
-    return this.storageService.getGameInfo(playerId);
+    const gameInfo: GameInfo = {
+      gameId: null,
+      gameStatus: null,
+    };
+
+    const validPlayer = await this.storageService.validatePlayerId(playerId);
+
+    if (validPlayer) {
+      const playerObj = await this.storageService.getPlayerObj(playerId);
+      const gameId = playerObj.currentGameId;
+
+      if (!gameId) {
+        // the player wasn't a part of any game.
+        return gameInfo;
+      }
+
+      const validGameId = await this.storageService.validateGameId(gameId);
+
+      if (!validGameId) {
+        // the game doesn't exist now
+        return gameInfo;
+      } else {
+        const gameObj = await this.storageService.getGameObj(gameId);
+
+        gameInfo.gameId = gameId;
+        gameInfo.gameStatus = gameObj.status;
+
+        return gameInfo;
+      }
+    }
+
+    console.warn("invalid playerId");
+    return gameInfo;
   }
 
   /**
-   * Removes the given player from the given game
-   * @throws if the given gameId does not exist
+   * Adds an existing user to a game. Updates its currentGameId and pushes the player to the game.
+   * @throws if the playerId or gameId do not exist
    */
-  public async removePlayerFromGame(playerId: string, gameId: string) {
-    return this.storageService.removePlayerFromGame(playerId, gameId);
+  private async updateGamePlayer(playerId: string, gameId: string) {
+    // update the gameId for the player
+    const playerObj = await this.storageService.getPlayerObj(playerId);
+
+    playerObj.currentGameId = gameId;
+
+    await this.storageService.savePlayerObj(playerObj);
+
+    // add the player to the game
+    const gameObj = await this.storageService.getGameObj(gameId);
+
+    gameObj.playerIds.push(playerObj.id);
+
+    await this.storageService.saveGameObj(gameObj);
+  }
+
+  /**
+   * Creates a new player and adds it to the game.
+   * @throws if the given gameId does not exist.
+   */
+  private async createGamePlayer(playerId: string, gameId: string) {
+    // add the player to the game.
+    const gameObj = await this.storageService.getGameObj(gameId);
+
+    gameObj.playerIds.push(playerId);
+
+    await this.storageService.saveGameObj(gameObj);
+
+    // create the player with the given id
+    const newPlayer: Player = {
+      id: playerId,
+      name: "player-" + playerId.substring(0, 5),
+      currentGameId: gameId,
+    };
+
+    await this.storageService.savePlayerObj(newPlayer);
+  }
+
+  /** Rejoins a player to the required game */
+  public async rejoinPlayer(playerId: string, gameId: string) {
+    // as the player is rejoining, the earlier checks would have ensured the validity of the player. Hence, it can safely be updated directly
+
+    await this.updateGamePlayer(playerId, gameId);
+  }
+
+  /** Returns the basic info of the given playerId if valid, null otherwise */
+  public async getPlayerInfo(playerId: string) {
+    const validPlayer = await this.validatePlayerId(playerId);
+
+    if (validPlayer) {
+      const player = await this.storageService.getPlayerObj(playerId);
+
+      return { playerId: player.id, playerName: player.name };
+    }
+
+    console.warn("invalid playerId");
+    return null;
   }
 
   /** Creates a new game with the specified user as host */
   public async createGame(hostId: string) {
+    // random lorem text for the game
     const gameText = loremIpsum({
       count: 3,
       units: "sentences",
@@ -58,7 +189,7 @@ export class GameService {
     };
 
     // store this game
-    await this.storageService.createGame(newGame);
+    await this.storageService.saveGameObj(newGame);
 
     // add the player to the game
     await this.addPlayer(hostId, newGame.id);
@@ -67,16 +198,7 @@ export class GameService {
   }
 
   /**
-   * Returns the number of players in the given gameId
-   * @throws Error if the specified game with that id does not exist
-   */
-  public async getRoomSize(gameId: string) {
-    return this.storageService.getRoomSize(gameId);
-  }
-
-  /**
    * Creates a player object if it doesn't exist and adds the player to the given gameId
-   * @throws if the specified player or game with that id does not exist
    */
   public async addPlayer(playerId: string, gameId: string) {
     // if the user exists, then we update it or create a new one
@@ -84,99 +206,237 @@ export class GameService {
 
     if (userExists) {
       // update the player object and add the userId to the game
-      await this.storageService.updatePlayerGameId(playerId, gameId);
+      await this.updateGamePlayer(playerId, gameId);
     } else {
       // or create a new player, also adding the userId to the game
-      await this.storageService.createNewPlayer(playerId, gameId);
+      await this.createGamePlayer(playerId, gameId);
     }
   }
 
-  /**
-   * Returns the game lobby of the given game
-   * @throws if a player with the given playerId does not exist
-   */
+  /** Returns the number of players in the given gameId if valid, null otherwise */
+  public async getRoomSize(gameId: string) {
+    const validGameId = await this.validateGameId(gameId);
+
+    if (validGameId) {
+      const gameObj = await this.storageService.getGameObj(gameId);
+
+      return gameObj.playerIds.length;
+    }
+
+    console.warn("invalid gameId");
+    return null;
+  }
+
+  /** Returns the lobby for a given game. Null if the game is invalid */
   public async getLobby(gameId: string) {
-    return this.storageService.getLobby(gameId);
+    // ensure that the given gameId is valid
+    const validGameId = await this.validateGameId(gameId);
+
+    if (validGameId) {
+      // gather the details
+      const gameObj = await this.storageService.getGameObj(gameId);
+
+      let players = [];
+
+      for (const playerId of gameObj.playerIds) {
+        const playerObj = await this.storageService.getPlayerObj(playerId);
+
+        players.push({
+          playerId: playerObj.id,
+          playerName: playerObj.name,
+        });
+      }
+      return {
+        hostId: gameObj.hostId,
+        players,
+      };
+    }
+
+    console.warn("invalid gameId");
+    return null; // when the game was invalid
   }
 
-  /**
-   * Returns the basic info of the given playerId
-   * @throws if a player with the given playerId does not exist.
-   */
-  public async getPlayerInfo(playerId: string) {
-    return this.storageService.getPlayerInfo(playerId);
-  }
-
-  /**
-   * Updates the player's username in the storage service
-   * @throws if the specified player with that id does not exist
-   */
+  /** Updates the player's username in the storage service. Returns true if it was successfully updated, false otherwise */
   public async changeUsername(playerId: string, newUsername: string) {
-    return this.storageService.changeUsername(playerId, newUsername);
+    // validate the incoming playerId.
+    const validPlayerId = await this.validatePlayerId(playerId);
+
+    if (validPlayerId) {
+      const playerObj = await this.storageService.getPlayerObj(playerId);
+
+      playerObj.name = newUsername;
+
+      await this.storageService.savePlayerObj(playerObj);
+
+      return true;
+    } else {
+      console.error("invalid playerId");
+      return false;
+    }
   }
 
-  /**
-   * Updates the status of a specific game
-   * @param gameId The unique identifier of the game to update
-   * @param newState The new GameStatus to assign to the game
-   * @returns A Promise that resolves when the game state has been successfully updated
-   * @throws Error if the specified game with that id does not exist
-   */
-  public async updateGameStatus(
-    gameId: string,
-    newState: GameStatus,
-  ): Promise<void> {
-    return this.storageService.updateGameStatus(gameId, newState);
+  /** Updates the game status. Returns true if successfull, false otherwise */
+  public async updateGameStatus(gameId: string, newState: GameStatus) {
+    const validGameId = await this.validateGameId(gameId);
+
+    if (validGameId) {
+      const gameObj = await this.storageService.getGameObj(gameId);
+
+      gameObj.status = newState;
+
+      await this.storageService.saveGameObj(gameObj);
+
+      return true;
+    }
+
+    console.warn("invalid gameId");
+    return false;
   }
 
+  /** Returns the game text for a give gameId if valid, null otherwise */
   public async getGameText(gameId: string) {
-    return this.storageService.getGameText(gameId);
+    const validGameId = await this.validateGameId(gameId);
+
+    if (validGameId) {
+      const gameObj = await this.storageService.getGameObj(gameId);
+
+      return gameObj.gameText;
+    }
+
+    console.warn("invalid gameId");
+    return null;
   }
 
+  /** Returns the game players with the initial position. */
   public async getGamePlayers(gameId: string) {
-    return this.storageService.getGamePlayers(gameId);
+    const validGameId = await this.validateGameId(gameId);
+
+    if (validGameId) {
+      const gameObj = await this.storageService.getGameObj(gameId);
+
+      let players = [];
+
+      for (const playerId of gameObj.playerIds) {
+        const playerObj = await this.storageService.getPlayerObj(playerId);
+
+        players.push({
+          playerId: playerObj.id,
+          playerName: playerObj.name,
+          position: 0,
+        });
+      }
+
+      return players;
+    } else {
+      console.warn("invalid gameId");
+      return null;
+    }
   }
-  /**
-   * Marks a game as finished for a player with the provided data
-   * @param playerId The unique identifier of the player who finished
-   * @param playerData The finish game data including WPM, accuracy, etc.
-   * @param gameId The unique identifier of the game
-   * @returns A Promise that resolves when the game has been marked as finished for the player
-   * @throws Error if the specified game with that id does not exist
-   */
-  public finishGame(
+
+  /** Adds a player to the gameResult object after it finished the game. */
+  public async finishGame(
     playerId: string,
     playerData: FinishGamePayload,
     gameId: string,
-  ): Promise<void> {
-    return this.storageService.finishGame(playerId, playerData, gameId);
+  ) {
+    const validPlayer = await this.validatePlayerId(playerId);
+    const validGameId = await this.validateGameId(gameId);
+
+    if (!validPlayer) {
+      console.warn("invalid playerId");
+      return;
+    }
+
+    if (!validGameId) {
+      console.warn("invalid gameId");
+      return;
+    }
+
+    const gameResultExists =
+      await this.storageService.validateGameResultId(gameId);
+
+    let gameResultObj: GameResult;
+
+    if (gameResultExists) {
+      // fetch the existing gameResultObj
+      gameResultObj = await this.storageService.getGameResultObj(gameId);
+    } else {
+      // create a new one
+      gameResultObj = {
+        id: gameId,
+        players: [],
+      };
+    }
+
+    // add the player to the object
+    const playerObj = await this.storageService.getPlayerObj(playerId);
+
+    gameResultObj.players.push({
+      id: playerObj.id,
+      name: playerObj.name,
+      wpm: playerData.wpm,
+      accuracy: playerData.accuracy,
+      time: playerData.time,
+      position: gameResultObj.players.length + 1,
+    });
+
+    // save the new object
+    await this.storageService.saveGameResultObj(gameResultObj);
   }
 
-  /**
-   * Checks if all players in a game have finished
-   * @param gameId The unique identifier of the game to check
-   * @returns A Promise resolving to a boolean indicating whether all players have finished the game
-   * @throws Error if the specified game with that id does not exist
-   */
-  public checkGameFinished(gameId: string): Promise<boolean> {
-    return this.storageService.checkGameFinished(gameId);
+  /** Checks if all players in a game have finished */
+  public async checkAllPlayersFinished(gameId: string) {
+    const validGameId = await this.validateGameId(gameId);
+
+    if (validGameId) {
+      const gameObj = await this.storageService.getGameObj(gameId);
+      const gameResultObj = await this.storageService.getGameResultObj(gameId);
+
+      return gameObj.playerIds.length === gameResultObj.players.length;
+    }
+
+    console.warn("invalid gameId");
+    return false;
   }
 
-  public markGameFinished(gameId: string) {
-    return this.storageService.markGameFinished(gameId);
+  /** Updates the gameObj for the given gameId as COMPLETED. */
+  public async markGameFinished(gameId: string) {
+    const validGameId = await this.validateGameId(gameId);
+
+    if (!validGameId) {
+      console.warn("invalid gameId");
+      return;
+    }
+
+    const gameObj = await this.storageService.getGameObj(gameId);
+
+    gameObj.status === GameStatus.COMPLETED;
+
+    await this.storageService.saveGameObj(gameObj);
   }
 
   /**
    * Retrieves the final game results including player scores and statistics
-   * @param gameId The unique identifier of the game to get results for
-   * @returns A Promise resolving to a GameResult object containing player scores and performance data
-   * @throws Error if the specified game with that id does not exist
+   * @throws if the gameId is invalid
    */
-  public getGameResult(gameId: string) {
-    return this.storageService.getGameResult(gameId);
+  public async getGameResult(gameId: string) {
+    const validGameResultId = await this.validateGameResultId(gameId);
+
+    if (validGameResultId) {
+      const gameResultObj = await this.storageService.getGameResultObj(gameId);
+
+      return gameResultObj.players;
+    }
+
+    console.warn("invalid gameResultId");
+    return null;
   }
 
-  public restartGame(gameId: string) {
-    return this.storageService.restartGame(gameId);
+  public async restartGame(gameId: string) {
+    const gameObj = await this.storageService.getGameObj(gameId);
+
+    gameObj.status = GameStatus.WAITING;
+
+    await this.storageService.saveGameObj(gameObj);
   }
 }

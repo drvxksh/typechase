@@ -62,6 +62,11 @@ export enum GameStatus {
   COMPLETED = "completed",
 }
 
+export type GameInfo = {
+  gameId: string | null;
+  gameStatus: GameStatus | null;
+};
+
 export interface Player {
   id: string;
   name: string;
