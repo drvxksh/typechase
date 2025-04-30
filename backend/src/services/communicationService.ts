@@ -26,14 +26,24 @@ export class CommunicationService {
 
   private constructor(server: http.Server) {
     // instantiating the redis instances
-    this.pubClient = createClient();
-    this.subClient = createClient();
+    this.pubClient = createClient({
+      socket: {
+        host: "redis",
+        port: 6379,
+      },
+    });
+    this.subClient = createClient({
+      socket: {
+        host: "redis",
+        port: 6379,
+      },
+    });
 
     this.pubClient.on("error", (err) =>
-      console.error("publisher client error:", err),
+      console.error("publisher client error:", err)
     );
     this.subClient.on("error", (err) =>
-      console.error("subscriber client error:", err),
+      console.error("subscriber client error:", err)
     );
 
     this.pubClient.connect();
@@ -63,7 +73,7 @@ export class CommunicationService {
           // remove the player from the game and fetch the updated host id if the player was a part of any game.
           updatedHostId = this.gameService.removePlayerFromGame(
             playerId,
-            gameId,
+            gameId
           );
         } catch (err) {
           console.error("couldn't remove player from game", err);
@@ -79,7 +89,7 @@ export class CommunicationService {
                 updatedHostId,
                 playerLeftId: playerId,
               },
-            }),
+            })
           );
         }
       });
@@ -128,15 +138,15 @@ export class CommunicationService {
   /** Redirects the incoming event to its respective handler */
   private async processMessage(
     client: SocketClient,
-    message: WebSocketMessage,
+    message: WebSocketMessage
   ): Promise<void> {
     // sanitize the incoming request.
     if (!message || !message.event || !message.payload) {
       const missingField = !message
         ? "message"
         : !message.event
-          ? "event"
-          : "payload";
+        ? "event"
+        : "payload";
       console.warn(`Incomplete request: ${missingField} is missing`);
       this.sendError(client, `Something went wrong...`);
       return;
@@ -211,7 +221,7 @@ export class CommunicationService {
    */
   private async handleConnect(
     client: SocketClient,
-    payload: any,
+    payload: any
   ): Promise<void> {
     const { playerId } = payload;
 
@@ -263,7 +273,7 @@ export class CommunicationService {
                 payload: {
                   newPlayerInfo,
                 },
-              }),
+              })
             );
 
             // return the connect request.
@@ -350,7 +360,7 @@ export class CommunicationService {
     if (gameId) {
       this.sendError(client, "Leave the existing game to create a new one");
       console.warn(
-        "failed to create a new game -> player was already part of a game",
+        "failed to create a new game -> player was already part of a game"
       );
 
       return;
@@ -373,7 +383,7 @@ export class CommunicationService {
   /** Joins the client to a game room if the max size has not been exceeded and publishes it to the other clients */
   private async handleJoinGame(
     client: SocketClient,
-    payload: any,
+    payload: any
   ): Promise<void> {
     const playerId = client.playerId;
     const existingGameId = client.gameId;
@@ -433,7 +443,7 @@ export class CommunicationService {
         payload: {
           newPlayerInfo,
         },
-      }),
+      })
     );
 
     await this.subscribeToGame(client);
@@ -442,7 +452,7 @@ export class CommunicationService {
   /** Verifies whether the incoming gameId is valid or not. Returns false if no gameId was received */
   private async handleCheckGameId(
     client: SocketClient,
-    payload: any,
+    payload: any
   ): Promise<void> {
     const { gameId } = payload;
 
@@ -475,7 +485,7 @@ export class CommunicationService {
   /** Changes the player username and notifies other clients */
   private async handleChangeUsername(
     client: SocketClient,
-    payload: any,
+    payload: any
   ): Promise<void> {
     if (!this.verifySocket(client)) {
       return;
@@ -492,7 +502,7 @@ export class CommunicationService {
 
     const userNameChanged = await this.gameService.changeUsername(
       playerId,
-      newUsername,
+      newUsername
     );
 
     if (userNameChanged) {
@@ -506,7 +516,7 @@ export class CommunicationService {
               playerName: newUsername,
             },
           },
-        }),
+        })
       );
     } else {
       this.sendError(client, "Something went wrong...");
@@ -533,7 +543,7 @@ export class CommunicationService {
     // change the status of the game to waiting.
     const success = await this.gameService.updateGameStatus(
       gameId,
-      GameStatus.WAITING,
+      GameStatus.WAITING
     );
 
     if (!success) {
@@ -548,7 +558,7 @@ export class CommunicationService {
       JSON.stringify({
         event: BroadcastEvent.GAME_STARTING,
         payload: {},
-      }),
+      })
     );
 
     // start the countdown.
@@ -563,7 +573,7 @@ export class CommunicationService {
           payload: {
             count,
           },
-        }),
+        })
       );
 
       // Decrement count
@@ -575,7 +585,7 @@ export class CommunicationService {
 
         const success = await this.gameService.updateGameStatus(
           gameId,
-          GameStatus.IN_PROGRESS,
+          GameStatus.IN_PROGRESS
         );
 
         if (!success) {
@@ -592,7 +602,7 @@ export class CommunicationService {
             payload: {
               message: "Game started!",
             },
-          }),
+          })
         );
       }
     }, 1000);
@@ -647,7 +657,7 @@ export class CommunicationService {
   /** Broadcasts player position updates */
   private async handlePlayerUpdate(
     client: SocketClient,
-    payload: any,
+    payload: any
   ): Promise<void> {
     if (!this.verifySocket(client)) {
       return;
@@ -672,7 +682,7 @@ export class CommunicationService {
           playerId,
           position: payload.position,
         },
-      }),
+      })
     );
   }
 
@@ -692,7 +702,7 @@ export class CommunicationService {
 
     if (Number.isNaN(wpm) || Number.isNaN(accuracy) || Number.isNaN(time)) {
       console.error(
-        `invalid request for finishing the game, received wpm ${wpm}, accuracy ${accuracy} and time ${time}`,
+        `invalid request for finishing the game, received wpm ${wpm}, accuracy ${accuracy} and time ${time}`
       );
 
       this.sendError(client, "Something went wrong...");
@@ -709,8 +719,9 @@ export class CommunicationService {
     // save the game data
     await this.gameService.finishGame(playerId, playerData, gameId);
 
-    const allPlayersFinished =
-      await this.gameService.checkAllPlayersFinished(gameId);
+    const allPlayersFinished = await this.gameService.checkAllPlayersFinished(
+      gameId
+    );
 
     if (allPlayersFinished) {
       await this.gameService.markGameFinished(gameId);
@@ -720,7 +731,7 @@ export class CommunicationService {
         JSON.stringify({
           event: BroadcastEvent.FINISH_GAME,
           payload: {},
-        }),
+        })
       );
     }
   }
@@ -769,8 +780,8 @@ export class CommunicationService {
         JSON.stringify({
           event: BroadcastEvent.GAME_WAITING,
           payload: {},
-        }),
-      ),
+        })
+      )
     );
   }
 
@@ -796,7 +807,7 @@ export class CommunicationService {
         payload: {
           playerId,
         },
-      }),
+      })
     );
   }
 }

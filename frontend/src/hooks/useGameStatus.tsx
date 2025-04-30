@@ -30,7 +30,6 @@ type WebSocketResponse =
 /** Custom hook to fetch the status of the game. redirects to the landing page if the gameId is invalid */
 export default function useGameStatus(gameId: string | undefined) {
   const { socket, sendMessage } = useSocketMessaging();
-  const [count, setCount] = useState<string>("");
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null);
 
   const navigator = useNavigate();
@@ -95,5 +94,5 @@ export default function useGameStatus(gameId: string | undefined) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, sendMessage, gameId]);
 
-  return { gameStatus, count };
+  return { gameStatus };
 }
