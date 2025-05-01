@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSocketMessaging } from "./useSocketMessaging";
 import { Lobby } from "../types";
+import { useNavigate } from "react-router";
 
 type WebSocketResponse =
   | {
@@ -31,8 +32,11 @@ type WebSocketResponse =
       event: "player_left";
       payload: {
         updatedHostId: string;
-        playerLeftId: string;
+        playerId: string;
       };
+    }
+  | {
+      event: "leave_game";
     };
 
 /**
@@ -44,6 +48,8 @@ type WebSocketResponse =
 export default function useLobbyManagement() {
   const [lobby, setLobby] = useState<Lobby | null>(null);
   const { socket, sendMessage } = useSocketMessaging();
+
+  const navigator = useNavigate();
 
   useEffect(() => {
     if (!socket) {
@@ -116,10 +122,18 @@ export default function useLobbyManagement() {
               return {
                 hostId: data.payload.updatedHostId,
                 players: prevLobby.players.filter(
-                  (player) => player.playerId !== data.payload.playerLeftId,
+                  (player) => player.playerId !== data.payload.playerId,
                 ),
               };
             });
+
+            break;
+          }
+
+          case "leave_game": {
+            // successfully exited the game. redirect to the landing page
+            navigator("/");
+            break;
           }
         }
       }
@@ -130,6 +144,7 @@ export default function useLobbyManagement() {
     return () => {
       socket.removeEventListener("message", handleMessage);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [socket, sendMessage]);
 
   const startGame = () => {

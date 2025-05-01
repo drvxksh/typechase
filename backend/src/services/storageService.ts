@@ -8,12 +8,13 @@ export class StorageService {
 
   private constructor() {
     // instantiate the redis client.
-    this.redisClient = createClient({
-      socket: {
-        host: "redis",
-        port: 6379,
-      },
-    });
+    // this.redisClient = createClient({
+    //   socket: {
+    //     host: "redis",
+    //     port: 6379,
+    //   },
+    // });
+    this.redisClient = createClient();
 
     this.redisClient.on("error", (error) =>
       console.error("Redis client error:", error)

@@ -22,6 +22,9 @@ type WebSocketResponse =
       payload: {
         message: string;
       };
+    }
+  | {
+      event: "disconnect";
     };
 
 /**
@@ -116,7 +119,6 @@ export default function useConnectSocket(): [
               healthCheckTimeoutRef.current = null;
             }
 
-            console.log("Connection is alive");
             break;
           }
           case "connect": {
@@ -148,6 +150,10 @@ export default function useConnectSocket(): [
             toast.error(data.payload.message);
 
             break;
+          }
+          case "disconnect": {
+            toast.error("You were disconnected from the game");
+            navigator("/");
           }
         }
       } else {

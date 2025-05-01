@@ -24,7 +24,7 @@ export class GameService {
    */
   public async removePlayerFromGame(
     playerId: string | undefined,
-    gameId: string | undefined,
+    gameId: string | undefined
   ) {
     // if the player was a part of the game, remove it.
     if (playerId && gameId) {
@@ -37,7 +37,7 @@ export class GameService {
       } else if (gameObj.hostId === playerId) {
         // there are other players in the game other than the host
         gameObj.playerIds = gameObj.playerIds.filter((id) => id !== playerId);
-        gameObj.hostId = gameObj.playerIds[0];
+        gameObj.hostId = gameObj.playerIds[0]; // reassign the host
       } else {
         // any other player but not the host
         gameObj.playerIds = gameObj.playerIds.filter((id) => id !== playerId);
@@ -88,7 +88,11 @@ export class GameService {
       const validGameId = await this.storageService.validateGameId(gameId);
 
       if (!validGameId) {
-        // the game doesn't exist now
+        // the game doesn't exist now, update the playerObj
+        playerObj.currentGameId = null;
+
+        await this.storageService.savePlayerObj(playerObj);
+
         return gameInfo;
       } else {
         const gameObj = await this.storageService.getGameObj(gameId);
@@ -100,7 +104,7 @@ export class GameService {
       }
     }
 
-    console.warn("invalid playerId");
+    console.warn("Fetching game info for an invalid player");
     return gameInfo;
   }
 
@@ -146,7 +150,7 @@ export class GameService {
     await this.storageService.savePlayerObj(newPlayer);
   }
 
-  /** Rejoins a player to the required game */
+  /** Updates the gameId of the player and adds the player to the game */
   public async rejoinPlayer(playerId: string, gameId: string) {
     // as the player is rejoining, the earlier checks would have ensured the validity of the player. Hence, it can safely be updated directly
 
@@ -163,7 +167,7 @@ export class GameService {
       return { playerId: player.id, playerName: player.name };
     }
 
-    console.warn("invalid playerId");
+    console.warn("Fetching player info for an invalid player");
     return null;
   }
 
@@ -223,7 +227,7 @@ export class GameService {
       return gameObj.playerIds.length;
     }
 
-    console.warn("invalid gameId");
+    console.warn("Fetching room size for an invalid game");
     return null;
   }
 
@@ -252,7 +256,7 @@ export class GameService {
       };
     }
 
-    console.warn("invalid gameId");
+    console.warn("Fetching lobby for an invalid game");
     return null; // when the game was invalid
   }
 
@@ -270,7 +274,7 @@ export class GameService {
 
       return true;
     } else {
-      console.error("invalid playerId");
+      console.error("Changing username of an invalid player");
       return false;
     }
   }
@@ -289,7 +293,7 @@ export class GameService {
       return true;
     }
 
-    console.warn("invalid gameId");
+    console.warn("Updating the game status of an invalid game");
     return false;
   }
 
@@ -303,7 +307,7 @@ export class GameService {
       return gameObj.gameText;
     }
 
-    console.warn("invalid gameId");
+    console.warn("Fetching the game text for an invalid game");
     return null;
   }
 
@@ -328,7 +332,7 @@ export class GameService {
 
       return players;
     } else {
-      console.warn("invalid gameId");
+      console.warn("Fetching the game players for an invalid game");
       return null;
     }
   }
@@ -337,23 +341,24 @@ export class GameService {
   public async finishGame(
     playerId: string,
     playerData: FinishGamePayload,
-    gameId: string,
+    gameId: string
   ) {
     const validPlayer = await this.validatePlayerId(playerId);
     const validGameId = await this.validateGameId(gameId);
 
     if (!validPlayer) {
-      console.warn("invalid playerId");
+      console.warn("Invalid player finishing the game");
       return;
     }
 
     if (!validGameId) {
-      console.warn("invalid gameId");
+      console.warn("Invalid game is being finished");
       return;
     }
 
-    const gameResultExists =
-      await this.storageService.validateGameResultId(gameId);
+    const gameResultExists = await this.storageService.validateGameResultId(
+      gameId
+    );
 
     let gameResultObj: GameResult;
 
@@ -395,7 +400,7 @@ export class GameService {
       return gameObj.playerIds.length === gameResultObj.players.length;
     }
 
-    console.warn("invalid gameId");
+    console.warn("Checking the player finishing status for an invalid game");
     return false;
   }
 
@@ -404,7 +409,7 @@ export class GameService {
     const validGameId = await this.validateGameId(gameId);
 
     if (!validGameId) {
-      console.warn("invalid gameId");
+      console.warn("An invalid game cannot be marked finished");
       return;
     }
 
@@ -428,7 +433,7 @@ export class GameService {
       return gameResultObj.players;
     }
 
-    console.warn("invalid gameResultId");
+    console.warn("Fetching an invalid game result");
     return null;
   }
 

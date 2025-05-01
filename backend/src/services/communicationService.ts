@@ -8,6 +8,7 @@ import {
   MAX_SIZE,
   MessageEvent,
   MIN_SIZE,
+  NewPlayerInfo,
   SocketClient,
   WebSocketMessage,
 } from "../types";
@@ -26,18 +27,21 @@ export class CommunicationService {
 
   private constructor(server: http.Server) {
     // instantiating the redis instances
-    this.pubClient = createClient({
-      socket: {
-        host: "redis",
-        port: 6379,
-      },
-    });
-    this.subClient = createClient({
-      socket: {
-        host: "redis",
-        port: 6379,
-      },
-    });
+    // this.pubClient = createClient({
+    //   socket: {
+    //     host: "redis",
+    //     port: 6379,
+    //   },
+    // });
+    // this.subClient = createClient({
+    //   socket: {
+    //     host: "redis",
+    //     port: 6379,
+    //   },
+    // });
+
+    this.pubClient = createClient();
+    this.subClient = createClient();
 
     this.pubClient.on("error", (err) =>
       console.error("publisher client error:", err)
@@ -71,12 +75,15 @@ export class CommunicationService {
 
         try {
           // remove the player from the game and fetch the updated host id if the player was a part of any game.
-          updatedHostId = this.gameService.removePlayerFromGame(
+          updatedHostId = await this.gameService.removePlayerFromGame(
             playerId,
             gameId
           );
         } catch (err) {
-          console.error("couldn't remove player from game", err);
+          console.error(
+            "Couldn't remove the player from the game while closing the connection",
+            err
+          );
         }
 
         if (updatedHostId) {
@@ -87,7 +94,7 @@ export class CommunicationService {
               event: BroadcastEvent.PLAYER_LEFT,
               payload: {
                 updatedHostId,
-                playerLeftId: playerId,
+                playerId,
               },
             })
           );
@@ -263,32 +270,40 @@ export class CommunicationService {
           await this.gameService.rejoinPlayer(playerId, gameInfo.gameId);
 
           // notify others that this player has joined again
-          const newPlayerInfo = await this.gameService.getPlayerInfo(playerId);
+          const newPlayerInfo = (await this.gameService.getPlayerInfo(
+            playerId
+          )) as NewPlayerInfo; // if you're here, the player validity has already been checked
 
-          if (newPlayerInfo) {
-            await this.pubClient.publish(
-              `game:${gameInfo.gameId}`,
-              JSON.stringify({
-                event: BroadcastEvent.NEW_PLAYER_JOINED,
-                payload: {
-                  newPlayerInfo,
-                },
-              })
-            );
-
-            // return the connect request.
-            this.send(client, {
-              event: MessageEvent.CONNECT,
+          await this.pubClient.publish(
+            `game:${gameInfo.gameId}`,
+            JSON.stringify({
+              event: BroadcastEvent.NEW_PLAYER_JOINED,
               payload: {
-                playerId: client.playerId,
-                existingGameId: gameInfo.gameId,
+                newPlayerInfo,
               },
-            });
+            })
+          );
 
-            await this.subscribeToGame(client); // subscribe this socket to listen for updates.
-          } else {
-            this.sendError(client, "Something went wrong...");
-          }
+          // return the connect request.
+          this.send(client, {
+            event: MessageEvent.CONNECT,
+            payload: {
+              playerId: client.playerId,
+              existingGameId: gameInfo.gameId,
+            },
+          });
+
+          await this.subscribeToGame(client); // subscribe this socket to listen for updates.
+        }
+        default: {
+          // disconnected in the middle of the game, back to the landing page
+          client.gameId = undefined;
+          client.subscription = undefined;
+
+          this.send(client, {
+            event: MessageEvent.DISCONNECT,
+            payload: {},
+          });
         }
       }
     }
@@ -312,14 +327,14 @@ export class CommunicationService {
   private verifySocket(client: SocketClient): boolean {
     if (!client.playerId) {
       this.sendError(client, "Something went wrong...");
-      console.warn("Bad request: unknown player");
+      console.warn("Invalid player caught");
 
       return false;
     }
 
     if (!client.gameId) {
       this.sendError(client, "Something went wrong...");
-      console.warn("Bad request: player is not a part of any game");
+      console.warn("Orphan player caught");
 
       return false;
     }
@@ -328,24 +343,28 @@ export class CommunicationService {
   }
 
   /** Subscribes a client to game updates via the pub-sub manager */
-  private async subscribeToGame(client: SocketClient): Promise<void> {
+  private async subscribeToGame(client: SocketClient) {
     // make sure that the socket is valid.
     if (!this.verifySocket(client)) {
       return;
     }
 
-    const gameId = client.gameId as string; // because the socket is verified, the gameId is known to exist.
+    const gameId = client.gameId as string; // because the socket always has a known gameId attached to it, the gameId is known to exist.
 
-    await this.subClient.subscribe(`game:${gameId}`, (message: string) => {
-      // using the private "send" method would add redundant parsing and stringifying. Hence, it is sent manaually
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(message);
-      }
-    });
+    // subscribe if the new subscription is different to the existing one
+    if (client.subscription !== `game:${gameId}`) {
+      client.subscription = `game:${gameId}`;
+
+      await this.subClient.subscribe(`game:${gameId}`, (message: string) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(message);
+        }
+      });
+    }
   }
 
   /** Creates a new game and sets up the listener for any changes */
-  private async handleCreateGame(client: SocketClient): Promise<void> {
+  private async handleCreateGame(client: SocketClient) {
     const playerId = client.playerId;
 
     if (!playerId) {
@@ -381,10 +400,7 @@ export class CommunicationService {
   }
 
   /** Joins the client to a game room if the max size has not been exceeded and publishes it to the other clients */
-  private async handleJoinGame(
-    client: SocketClient,
-    payload: any
-  ): Promise<void> {
+  private async handleJoinGame(client: SocketClient, payload: any) {
     const playerId = client.playerId;
     const existingGameId = client.gameId;
 
@@ -397,6 +413,9 @@ export class CommunicationService {
 
     if (existingGameId) {
       this.sendError(client, "Leave the existing game to join a new one.");
+      console.warn(
+        "failed to join a game -> player was already part of a game"
+      );
 
       return;
     }
@@ -426,6 +445,9 @@ export class CommunicationService {
 
     await this.gameService.addPlayer(playerId, gameId); // the incoming gameId has already been validated and the playerId fetched from the client is always authentic.
 
+    // attach the gameId on the client
+    client.gameId = gameId;
+
     this.send(client, {
       event: MessageEvent.JOIN_GAME,
       payload: {
@@ -434,7 +456,9 @@ export class CommunicationService {
     });
 
     // publish this new player on the game channel
-    const newPlayerInfo = await this.gameService.getPlayerInfo(playerId); // as the playerId is valid, it won't be null
+    const newPlayerInfo = (await this.gameService.getPlayerInfo(
+      playerId
+    )) as NewPlayerInfo; // as the playerId is valid, it won't be null
 
     await this.pubClient.publish(
       `game:${gameId}`,
@@ -450,10 +474,7 @@ export class CommunicationService {
   }
 
   /** Verifies whether the incoming gameId is valid or not. Returns false if no gameId was received */
-  private async handleCheckGameId(
-    client: SocketClient,
-    payload: any
-  ): Promise<void> {
+  private async handleCheckGameId(client: SocketClient, payload: any) {
     const { gameId } = payload;
 
     this.send(client, {
@@ -465,7 +486,7 @@ export class CommunicationService {
   }
 
   /** Returns the current game lobby of the given game */
-  private async handleGetLobby(client: SocketClient): Promise<void> {
+  private async handleGetLobby(client: SocketClient) {
     if (!this.verifySocket(client)) return;
 
     const gameId = client.gameId as string;
@@ -483,10 +504,7 @@ export class CommunicationService {
   }
 
   /** Changes the player username and notifies other clients */
-  private async handleChangeUsername(
-    client: SocketClient,
-    payload: any
-  ): Promise<void> {
+  private async handleChangeUsername(client: SocketClient, payload: any) {
     if (!this.verifySocket(client)) {
       return;
     }
@@ -519,8 +537,7 @@ export class CommunicationService {
         })
       );
     } else {
-      this.sendError(client, "Something went wrong...");
-      console.error("couldn't update the username");
+      this.sendError(client, "Couldn't update the username");
     }
   }
 
@@ -640,18 +657,14 @@ export class CommunicationService {
 
     const players = await this.gameService.getGamePlayers(gameId);
 
-    if (!players) {
-      console.warn("players were not returned");
-      this.sendError(client, "Something went wrong...");
-      return;
+    if (players) {
+      this.send(client, {
+        event: MessageEvent.GET_GAME_PLAYERS,
+        payload: {
+          players,
+        },
+      });
     }
-
-    this.send(client, {
-      event: MessageEvent.GET_GAME_PLAYERS,
-      payload: {
-        players,
-      },
-    });
   }
 
   /** Broadcasts player position updates */
@@ -748,19 +761,14 @@ export class CommunicationService {
     // fetch the game result
     const players = await this.gameService.getGameResult(gameId);
 
-    if (!players) {
-      console.warn("empty players recieved");
-      this.sendError(client, "Something went wrong...");
-      return;
+    if (players) {
+      this.send(client, {
+        event: MessageEvent.GET_GAME_RESULT,
+        payload: {
+          players,
+        },
+      });
     }
-
-    // send it back to the client
-    this.send(client, {
-      event: MessageEvent.GET_GAME_RESULT,
-      payload: {
-        players,
-      },
-    });
   }
 
   private async handleRestartGame(client: SocketClient) {
@@ -795,19 +803,31 @@ export class CommunicationService {
     const playerId = client.playerId as string;
     const gameId = client.gameId as string;
 
-    await this.gameService.removePlayerFromGame(playerId, gameId);
+    let updatedHostId = null;
+
+    updatedHostId = await this.gameService.removePlayerFromGame(
+      playerId,
+      gameId
+    );
+
+    // notify the client that it can leave now
+    this.send(client, {
+      event: MessageEvent.LEAVE_GAME,
+      payload: {},
+    });
 
     client.gameId = undefined;
 
-    // update others that this player left
-    await this.pubClient.publish(
-      `game:${gameId}`,
-      JSON.stringify({
+    // update others if there is a new host, if there was no host, the game has no players, no point in broadcasting it
+    if (updatedHostId) {
+      const message = JSON.stringify({
         event: BroadcastEvent.PLAYER_LEFT,
         payload: {
           playerId,
+          updatedHostId,
         },
-      })
-    );
+      });
+      await this.pubClient.publish(`game:${gameId}`, message);
+    }
   }
 }

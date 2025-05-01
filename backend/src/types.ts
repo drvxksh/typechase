@@ -3,6 +3,7 @@ import WebSocket from "ws";
 export interface SocketClient extends WebSocket {
   playerId?: string;
   gameId?: string;
+  subscription?: string;
 }
 
 export enum MessageEvent {
@@ -22,6 +23,7 @@ export enum MessageEvent {
   "GET_GAME_RESULT" = "get_game_result",
   "RESTART_GAME" = "restart_game",
   "LEAVE_GAME" = "leave_game",
+  "DISCONNECT" = "disconnected",
 }
 
 export interface WebSocketMessage {
@@ -72,6 +74,11 @@ export interface Player {
   name: string;
   currentGameId: string | null;
 }
+
+export type NewPlayerInfo = {
+  playerId: string;
+  playerName: string;
+};
 
 export interface GameResult {
   id: string; // same as the gameId
