@@ -24,7 +24,7 @@ export class GameService {
    */
   public async removePlayerFromGame(
     playerId: string | undefined,
-    gameId: string | undefined
+    gameId: string | undefined,
   ) {
     // if the player was a part of the game, remove it.
     if (playerId && gameId) {
@@ -173,22 +173,13 @@ export class GameService {
 
   /** Creates a new game with the specified user as host */
   public async createGame(hostId: string) {
-    // random lorem text for the game
-    const gameText = loremIpsum({
-      count: 3,
-      units: "sentences",
-      sentenceLowerBound: 5,
-      sentenceUpperBound: 15,
-      format: "plain",
-    });
-
     // create the new game object
     const newGame: Game = {
       id: uuid(),
       hostId,
       playerIds: [], // the current host will be added by the addPlayer function
       status: GameStatus.WAITING,
-      gameText,
+      gameText: "",
       createdAt: new Date(),
     };
 
@@ -288,6 +279,19 @@ export class GameService {
 
       gameObj.status = newState;
 
+      // if the game is starting, add the game text.
+      if (newState === GameStatus.STARTING) {
+        const gameText = loremIpsum({
+          count: 1,
+          units: "sentences",
+          sentenceLowerBound: 5,
+          sentenceUpperBound: 15,
+          format: "plain",
+        });
+
+        gameObj.gameText = gameText.trim(); // avoid any spaces at the ends
+      }
+
       await this.storageService.saveGameObj(gameObj);
 
       return true;
@@ -303,7 +307,6 @@ export class GameService {
 
     if (validGameId) {
       const gameObj = await this.storageService.getGameObj(gameId);
-
       return gameObj.gameText;
     }
 
@@ -341,7 +344,7 @@ export class GameService {
   public async finishGame(
     playerId: string,
     playerData: FinishGamePayload,
-    gameId: string
+    gameId: string,
   ) {
     const validPlayer = await this.validatePlayerId(playerId);
     const validGameId = await this.validateGameId(gameId);
@@ -356,9 +359,8 @@ export class GameService {
       return;
     }
 
-    const gameResultExists = await this.storageService.validateGameResultId(
-      gameId
-    );
+    const gameResultExists =
+      await this.storageService.validateGameResultId(gameId);
 
     let gameResultObj: GameResult;
 

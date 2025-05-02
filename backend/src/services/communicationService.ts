@@ -44,10 +44,10 @@ export class CommunicationService {
     this.subClient = createClient();
 
     this.pubClient.on("error", (err) =>
-      console.error("publisher client error:", err)
+      console.error("publisher client error:", err),
     );
     this.subClient.on("error", (err) =>
-      console.error("subscriber client error:", err)
+      console.error("subscriber client error:", err),
     );
 
     this.pubClient.connect();
@@ -77,12 +77,12 @@ export class CommunicationService {
           // remove the player from the game and fetch the updated host id if the player was a part of any game.
           updatedHostId = await this.gameService.removePlayerFromGame(
             playerId,
-            gameId
+            gameId,
           );
         } catch (err) {
           console.error(
             "Couldn't remove the player from the game while closing the connection",
-            err
+            err,
           );
         }
 
@@ -96,7 +96,7 @@ export class CommunicationService {
                 updatedHostId,
                 playerId,
               },
-            })
+            }),
           );
         }
       });
@@ -145,15 +145,15 @@ export class CommunicationService {
   /** Redirects the incoming event to its respective handler */
   private async processMessage(
     client: SocketClient,
-    message: WebSocketMessage
+    message: WebSocketMessage,
   ): Promise<void> {
     // sanitize the incoming request.
     if (!message || !message.event || !message.payload) {
       const missingField = !message
         ? "message"
         : !message.event
-        ? "event"
-        : "payload";
+          ? "event"
+          : "payload";
       console.warn(`Incomplete request: ${missingField} is missing`);
       this.sendError(client, `Something went wrong...`);
       return;
@@ -228,7 +228,7 @@ export class CommunicationService {
    */
   private async handleConnect(
     client: SocketClient,
-    payload: any
+    payload: any,
   ): Promise<void> {
     const { playerId } = payload;
 
@@ -271,7 +271,7 @@ export class CommunicationService {
 
           // notify others that this player has joined again
           const newPlayerInfo = (await this.gameService.getPlayerInfo(
-            playerId
+            playerId,
           )) as NewPlayerInfo; // if you're here, the player validity has already been checked
 
           await this.pubClient.publish(
@@ -281,7 +281,7 @@ export class CommunicationService {
               payload: {
                 newPlayerInfo,
               },
-            })
+            }),
           );
 
           // return the connect request.
@@ -379,7 +379,7 @@ export class CommunicationService {
     if (gameId) {
       this.sendError(client, "Leave the existing game to create a new one");
       console.warn(
-        "failed to create a new game -> player was already part of a game"
+        "failed to create a new game -> player was already part of a game",
       );
 
       return;
@@ -414,7 +414,7 @@ export class CommunicationService {
     if (existingGameId) {
       this.sendError(client, "Leave the existing game to join a new one.");
       console.warn(
-        "failed to join a game -> player was already part of a game"
+        "failed to join a game -> player was already part of a game",
       );
 
       return;
@@ -457,7 +457,7 @@ export class CommunicationService {
 
     // publish this new player on the game channel
     const newPlayerInfo = (await this.gameService.getPlayerInfo(
-      playerId
+      playerId,
     )) as NewPlayerInfo; // as the playerId is valid, it won't be null
 
     await this.pubClient.publish(
@@ -467,7 +467,7 @@ export class CommunicationService {
         payload: {
           newPlayerInfo,
         },
-      })
+      }),
     );
 
     await this.subscribeToGame(client);
@@ -520,7 +520,7 @@ export class CommunicationService {
 
     const userNameChanged = await this.gameService.changeUsername(
       playerId,
-      newUsername
+      newUsername,
     );
 
     if (userNameChanged) {
@@ -534,7 +534,7 @@ export class CommunicationService {
               playerName: newUsername,
             },
           },
-        })
+        }),
       );
     } else {
       this.sendError(client, "Couldn't update the username");
@@ -557,10 +557,10 @@ export class CommunicationService {
       return;
     }
 
-    // change the status of the game to waiting.
+    // change the status of the game to starting.
     const success = await this.gameService.updateGameStatus(
       gameId,
-      GameStatus.WAITING
+      GameStatus.STARTING,
     );
 
     if (!success) {
@@ -575,7 +575,7 @@ export class CommunicationService {
       JSON.stringify({
         event: BroadcastEvent.GAME_STARTING,
         payload: {},
-      })
+      }),
     );
 
     // start the countdown.
@@ -590,7 +590,7 @@ export class CommunicationService {
           payload: {
             count,
           },
-        })
+        }),
       );
 
       // Decrement count
@@ -602,7 +602,7 @@ export class CommunicationService {
 
         const success = await this.gameService.updateGameStatus(
           gameId,
-          GameStatus.IN_PROGRESS
+          GameStatus.IN_PROGRESS,
         );
 
         if (!success) {
@@ -619,7 +619,7 @@ export class CommunicationService {
             payload: {
               message: "Game started!",
             },
-          })
+          }),
         );
       }
     }, 1000);
@@ -670,7 +670,7 @@ export class CommunicationService {
   /** Broadcasts player position updates */
   private async handlePlayerUpdate(
     client: SocketClient,
-    payload: any
+    payload: any,
   ): Promise<void> {
     if (!this.verifySocket(client)) {
       return;
@@ -681,8 +681,6 @@ export class CommunicationService {
 
     // verify that the payload has the required fields
     if (!payload.position && isNaN(Number(payload.position))) {
-      console.warn(`Incomplete request by ${playerId}, position not provided`);
-      this.sendError(client, "Something went wrong...");
       return;
     }
 
@@ -695,7 +693,7 @@ export class CommunicationService {
           playerId,
           position: payload.position,
         },
-      })
+      }),
     );
   }
 
@@ -715,7 +713,7 @@ export class CommunicationService {
 
     if (Number.isNaN(wpm) || Number.isNaN(accuracy) || Number.isNaN(time)) {
       console.error(
-        `invalid request for finishing the game, received wpm ${wpm}, accuracy ${accuracy} and time ${time}`
+        `invalid request for finishing the game, received wpm ${wpm}, accuracy ${accuracy} and time ${time}`,
       );
 
       this.sendError(client, "Something went wrong...");
@@ -732,9 +730,8 @@ export class CommunicationService {
     // save the game data
     await this.gameService.finishGame(playerId, playerData, gameId);
 
-    const allPlayersFinished = await this.gameService.checkAllPlayersFinished(
-      gameId
-    );
+    const allPlayersFinished =
+      await this.gameService.checkAllPlayersFinished(gameId);
 
     if (allPlayersFinished) {
       await this.gameService.markGameFinished(gameId);
@@ -744,7 +741,7 @@ export class CommunicationService {
         JSON.stringify({
           event: BroadcastEvent.FINISH_GAME,
           payload: {},
-        })
+        }),
       );
     }
   }
@@ -780,16 +777,14 @@ export class CommunicationService {
     const gameId = client.gameId as string;
 
     // to restart the game, change the status back to waiting and broadcast to others
-    await this.gameService.restartGame(gameId);
+    await this.gameService.restartGame(gameId); // TODO reset the game text idiot
 
     await this.pubClient.publish(
       `game:${gameId}`,
-      JSON.stringify(
-        JSON.stringify({
-          event: BroadcastEvent.GAME_WAITING,
-          payload: {},
-        })
-      )
+      JSON.stringify({
+        event: BroadcastEvent.GAME_WAITING,
+        payload: {},
+      }),
     );
   }
 
@@ -807,7 +802,7 @@ export class CommunicationService {
 
     updatedHostId = await this.gameService.removePlayerFromGame(
       playerId,
-      gameId
+      gameId,
     );
 
     // notify the client that it can leave now

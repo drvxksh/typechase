@@ -13,6 +13,13 @@ type WebSocketResponse =
       payload: {
         players: { playerId: string; playerName: string; position: string }[];
       };
+    }
+  | {
+      event: "player_update";
+      payload: {
+        playerId: string;
+        position: number;
+      };
     };
 
 type Player = {
@@ -31,6 +38,9 @@ export default function useGameInProgressManagement() {
     if (!socket) {
       return;
     }
+
+    sendMessage("get_game_text");
+    sendMessage("get_game_players");
 
     const handleMessage = (event: MessageEvent) => {
       let data: WebSocketResponse | null = null;
@@ -52,6 +62,7 @@ export default function useGameInProgressManagement() {
           }
           case "get_game_players": {
             // convert the incoming position from type string to number
+
             setPlayers(
               data.payload.players.map((player) => ({
                 playerId: player.playerId,
@@ -59,7 +70,30 @@ export default function useGameInProgressManagement() {
                 position: Number(player.position),
               })),
             );
+
+            break;
           }
+          case "player_update":
+            {
+              // update the players object
+              // setPlayers(
+              //   players.map((player) =>
+              //     player.playerId === data.payload.playerId
+              //       ? { ...player, position: data.payload.position }
+              //       : { ...player },
+              //   ),
+              // );
+
+              setPlayers((prevPlayers) =>
+                prevPlayers.map((player) =>
+                  player.playerId === data.payload.playerId
+                    ? { ...player, position: data.payload.position }
+                    : { ...player },
+                ),
+              );
+            }
+
+            break;
         }
       }
     };

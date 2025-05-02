@@ -8,7 +8,7 @@ import { GameStatus } from "../types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useGameInProgressManagement from "../hooks/useGameInProgressManagement";
 import useGameStartingManagement from "../hooks/useGameStartingManagement";
-// import useGameCompletedManagement from "../hooks/useGameCompletedManagement";
+import useGameCompletedManagement from "../hooks/useGameCompletedManagement";
 
 export default function Game() {
   return (
@@ -29,6 +29,7 @@ function RenderGameByStatus() {
 
   // validate the gameId and fetch the status and count in case the game is starting
   const { gameStatus } = useGameStatus(gameId);
+  // const gameStatus = GameStatus.IN_PROGRESS;
 
   switch (gameStatus) {
     case GameStatus.WAITING:
@@ -207,7 +208,9 @@ function GameInProgress() {
   // update the input value
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     // don't accept more input if the game is finished
-    if (userInput.length >= gameText.length) return;
+    if (userInput.length >= gameText.length) {
+      return;
+    }
 
     const newInput = e.target.value;
     setUserInput(newInput);
@@ -258,13 +261,14 @@ function GameInProgress() {
 
       const words = position / 5; // a word is 5 chars on average
       const minutes = elapsedTimeSeconds / 60;
+
       return Math.round(words / minutes);
     },
     [],
   );
 
   const renderProgressBars = useMemo(() => {
-    return Object.values(players).map((player) => {
+    return players.map((player) => {
       const progress = calculateProgress(player.position);
 
       // Check if this player is the current player using the playerId field
@@ -279,7 +283,9 @@ function GameInProgress() {
             <div className="flex items-center">
               {isCurrentPlayer && <span className="mr-2 text-blue-500">►</span>}
               <span
-                className={`font-semibold ${isCurrentPlayer ? "text-blue-600" : "text-gray-700"}`}
+                className={`font-semibold ${
+                  isCurrentPlayer ? "text-blue-600" : "text-gray-700"
+                }`}
               >
                 {player.playerName || `Player ${player.playerId.slice(0, 4)}`}
               </span>
@@ -295,7 +301,9 @@ function GameInProgress() {
           </div>
           <div className="h-3 w-full overflow-hidden rounded-full bg-gray-200">
             <div
-              className={`h-full rounded-full ${isCurrentPlayer ? "bg-blue-500" : "bg-gray-500"}`}
+              className={`h-full rounded-full ${
+                isCurrentPlayer ? "bg-blue-500" : "bg-gray-500"
+              }`}
               style={{
                 width: `${progress}%`,
                 transition: "width 0.3s ease-in-out",
@@ -305,7 +313,7 @@ function GameInProgress() {
         </div>
       );
     });
-  }, [calculateWPM, calculateProgress, currentPlayerId, elapsedTime, players]);
+  }, [currentPlayerId, players, calculateWPM, calculateProgress]);
 
   return (
     <section className="mt-[15vh] w-full">
@@ -331,7 +339,30 @@ function GameInProgress() {
 }
 
 function GameCompleted() {
-  // const { result } = useGameCompletedManagement();
+  const { result, restartGame, leaveGame } = useGameCompletedManagement();
 
-  return <section>The game is now completed</section>;
+  const handleRestartGame = () => {
+    restartGame();
+  };
+
+  const handleLeaveGame = () => {
+    leaveGame();
+  };
+
+  return (
+    <section>
+      The game is now completed{" "}
+      <button onClick={handleLeaveGame}>Leave Game</button>{" "}
+      <button onClick={handleRestartGame}>Restart</button>
+      <div>
+        Game results
+        {result.players.map((player) => (
+          <div>
+            <p>{player.name}</p>
+            <p>{player.wpm}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
 }

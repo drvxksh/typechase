@@ -52,12 +52,16 @@ export default function useGameCompletedManagement() {
 
     socket.addEventListener("message", handleMessage);
 
-    return socket.removeEventListener("message", handleMessage);
+    return () => socket.removeEventListener("message", handleMessage);
   }, [socket, sendMessage]);
 
-  const restartGame = sendMessage("restart_game");
+  const restartGame = () => {
+    sendMessage("restart_game");
+  };
 
-  const leaveGame = sendMessage("leave_game");
+  const leaveGame = () => {
+    sendMessage("leave_game");
+  };
 
   return { result, restartGame, leaveGame };
 }

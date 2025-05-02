@@ -25,6 +25,9 @@ type WebSocketResponse =
     }
   | {
       event: "game_waiting";
+    }
+  | {
+      event: "finish_game";
     };
 
 /** Custom hook to fetch the status of the game. redirects to the landing page if the gameId is invalid */
@@ -72,13 +75,14 @@ export default function useGameStatus(gameId: string | undefined) {
           }
           case "game_start": {
             setGameStatus(GameStatus.IN_PROGRESS);
-
-            // fetch the game text for the game
-            sendMessage("get_game_text");
             break;
           }
           case "game_waiting": {
             setGameStatus(GameStatus.WAITING);
+            break;
+          }
+          case "finish_game": {
+            setGameStatus(GameStatus.COMPLETED);
             break;
           }
         }
