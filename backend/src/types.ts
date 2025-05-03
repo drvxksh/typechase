@@ -40,7 +40,7 @@ export enum BroadcastEvent {
   "PLAYER_UPDATE" = "player_update",
   "FINISH_GAME" = "finish_game",
   "PLAYER_LEFT" = "player_left",
-  "GAME_WAITING" = "game_waiting",
+  "GAME_RESTARTING" = "game_restarting",
 }
 
 export interface BroadcastMessage {

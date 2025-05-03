@@ -24,7 +24,10 @@ type WebSocketResponse =
       event: "leave_game";
     }
   | {
-      event: "game_waiting";
+      event: "game_restarting";
+      payload: {
+        newGameId: string;
+      };
     }
   | {
       event: "finish_game";
@@ -77,12 +80,18 @@ export default function useGameStatus(gameId: string | undefined) {
             setGameStatus(GameStatus.IN_PROGRESS);
             break;
           }
-          case "game_waiting": {
-            setGameStatus(GameStatus.WAITING);
+          case "game_restarting": {
+            const newGameId = data.payload.newGameId;
+            // redirect to the new game
+            navigator(`/game/${newGameId}`);
             break;
           }
           case "finish_game": {
             setGameStatus(GameStatus.COMPLETED);
+            break;
+          }
+          case "leave_game": {
+            navigator("/");
             break;
           }
         }

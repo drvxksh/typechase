@@ -292,8 +292,6 @@ export class CommunicationService {
               existingGameId: gameInfo.gameId,
             },
           });
-
-          await this.subscribeToGame(client); // subscribe this socket to listen for updates.
         }
         default: {
           // disconnected in the middle of the game, back to the landing page
@@ -387,10 +385,6 @@ export class CommunicationService {
 
     const newGameId = await this.gameService.createGame(playerId);
 
-    client.gameId = newGameId;
-
-    await this.subscribeToGame(client);
-
     this.send(client, {
       event: MessageEvent.CREATE_GAME,
       payload: {
@@ -445,9 +439,6 @@ export class CommunicationService {
 
     await this.gameService.addPlayer(playerId, gameId); // the incoming gameId has already been validated and the playerId fetched from the client is always authentic.
 
-    // attach the gameId on the client
-    client.gameId = gameId;
-
     this.send(client, {
       event: MessageEvent.JOIN_GAME,
       payload: {
@@ -469,18 +460,26 @@ export class CommunicationService {
         },
       }),
     );
-
-    await this.subscribeToGame(client);
   }
 
   /** Verifies whether the incoming gameId is valid or not. Returns false if no gameId was received */
   private async handleCheckGameId(client: SocketClient, payload: any) {
     const { gameId } = payload;
 
+    const validGame = await this.gameService.validateGameId(gameId);
+
+    if (validGame) {
+      // attach the socket client to this gameId
+      client.gameId = gameId;
+
+      // subscribe the client to the gameId
+      await this.subscribeToGame(client);
+    }
+
     this.send(client, {
       event: MessageEvent.CHECK_GAME_ID,
       payload: {
-        isGameInvalid: !this.gameService.validateGameId(gameId), // if this returns true, means that gameId is valid, but we return false as the gameId is not invalid
+        isGameInvalid: !validGame, // if this returns true, means that gameId is valid, but we return false as the gameId is not invalid
       },
     });
   }
@@ -776,16 +775,21 @@ export class CommunicationService {
 
     const gameId = client.gameId as string;
 
-    // to restart the game, change the status back to waiting and broadcast to others
-    await this.gameService.restartGame(gameId); // TODO reset the game text idiot
+    // create a new game with the same players and return the new id
+    const newGameId = await this.gameService.restartGame(gameId);
 
     await this.pubClient.publish(
       `game:${gameId}`,
       JSON.stringify({
-        event: BroadcastEvent.GAME_WAITING,
-        payload: {},
+        event: BroadcastEvent.GAME_RESTARTING,
+        payload: {
+          newGameId,
+        },
       }),
     );
+
+    // unsubscribe from the old game
+    await this.subClient.unsubscribe(`game:${client.gameId}`);
   }
 
   private async handleLeaveGame(client: SocketClient) {
@@ -810,6 +814,10 @@ export class CommunicationService {
       event: MessageEvent.LEAVE_GAME,
       payload: {},
     });
+
+    // unsubscribe the client from that channel
+
+    await this.subClient.unsubscribe(`game:${gameId}`);
 
     client.gameId = undefined;
 

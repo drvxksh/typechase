@@ -281,15 +281,16 @@ export class GameService {
 
       // if the game is starting, add the game text.
       if (newState === GameStatus.STARTING) {
-        const gameText = loremIpsum({
-          count: 1,
-          units: "sentences",
-          sentenceLowerBound: 5,
-          sentenceUpperBound: 15,
-          format: "plain",
-        });
+        // const gameText = loremIpsum({
+        //   count: 1,
+        //   units: "sentences",
+        //   sentenceLowerBound: 5,
+        //   sentenceUpperBound: 15,
+        //   format: "plain",
+        // });
 
-        gameObj.gameText = gameText.trim(); // avoid any spaces at the ends
+        gameObj.gameText = "asdf";
+        // gameObj.gameText = gameText.trim(); // avoid any spaces at the ends
       }
 
       await this.storageService.saveGameObj(gameObj);
@@ -440,10 +441,24 @@ export class GameService {
   }
 
   public async restartGame(gameId: string) {
-    const gameObj = await this.storageService.getGameObj(gameId);
+    // create the new game from the existing one
+    const existingGameObj = await this.storageService.getGameObj(gameId);
 
-    gameObj.status = GameStatus.WAITING;
+    const newGame: Game = {
+      id: uuid(),
+      hostId: existingGameObj.hostId,
+      playerIds: existingGameObj.playerIds,
+      status: GameStatus.WAITING,
+      gameText: "",
+      createdAt: new Date(),
+    };
 
-    await this.storageService.saveGameObj(gameObj);
+    // delete the old game object
+    await this.storageService.deleteGameObj(existingGameObj.id);
+
+    // save the game and return the new gameId
+    await this.storageService.saveGameObj(newGame);
+
+    return newGame.id;
   }
 }
