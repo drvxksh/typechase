@@ -24,6 +24,7 @@ export class CommunicationService {
   private subClient: RedisClientType;
   private gameService: GameService;
   private wss: WebSocket.Server;
+  private clientSubscriptions: Map<string, SocketClient[]>; // used to track the channel and its clients for this instance
 
   private constructor(server: http.Server) {
     // instantiating the redis instances
@@ -39,6 +40,7 @@ export class CommunicationService {
     //     port: 6379,
     //   },
     // });
+    this.clientSubscriptions = new Map();
 
     this.pubClient = createClient();
     this.subClient = createClient();
@@ -72,6 +74,9 @@ export class CommunicationService {
         const gameId = socketClient.gameId;
 
         let updatedHostId = null;
+
+        // unsubscribe the client from the game
+        await this.unsubscribeFromGame(socketClient);
 
         try {
           // remove the player from the game and fetch the updated host id if the player was a part of any game.
@@ -191,6 +196,7 @@ export class CommunicationService {
         break;
       case MessageEvent.GET_GAME_PLAYERS:
         this.handleGetGamePlayers(client);
+        break;
       case MessageEvent.PLAYER_UPDATE:
         this.handlePlayerUpdate(client, payload);
         break;
@@ -269,6 +275,9 @@ export class CommunicationService {
           // add the player back to the game
           await this.gameService.rejoinPlayer(playerId, gameInfo.gameId);
 
+          // resub the client
+          await this.subscribeToGame(client);
+
           // notify others that this player has joined again
           const newPlayerInfo = (await this.gameService.getPlayerInfo(
             playerId,
@@ -296,7 +305,6 @@ export class CommunicationService {
         default: {
           // disconnected in the middle of the game, back to the landing page
           client.gameId = undefined;
-          client.subscription = undefined;
 
           this.send(client, {
             event: MessageEvent.DISCONNECT,
@@ -340,6 +348,48 @@ export class CommunicationService {
     return true;
   }
 
+  /** Sends the message to all the clients subscribed to the game */
+  private async broadcastToGame(gameId: string, message: string) {
+    const clients: SocketClient[] =
+      this.clientSubscriptions.get(`game:${gameId}`) || [];
+
+    if (clients.length === 0) {
+      console.warn("Broadcasting to an empty channel");
+      return;
+    } else {
+      for (const client of clients) {
+        client.send(message);
+      }
+    }
+  }
+
+  /** Unsubscribes a client from the game. Unsubscribes from the channel if there are no clients listening to it */
+  private async unsubscribeFromGame(client: SocketClient) {
+    if (!this.verifySocket(client)) {
+      return;
+    }
+
+    const gameId = client.gameId;
+
+    // reset the gameId of the client
+    client.gameId = undefined;
+
+    const clients: SocketClient[] =
+      this.clientSubscriptions.get(`game:${gameId}`) || [];
+
+    // remove the client from the game
+    const updatedClients = clients.filter(
+      (oldClient) => oldClient.playerId !== client.playerId,
+    );
+
+    this.clientSubscriptions.set(`game:${gameId}`, updatedClients);
+
+    if (updatedClients.length === 0) {
+      // there are no clients listening for this channel, unsubscribe
+      await this.subClient.unsubscribe(`game:${gameId}`);
+    }
+  }
+
   /** Subscribes a client to game updates via the pub-sub manager */
   private async subscribeToGame(client: SocketClient) {
     // make sure that the socket is valid.
@@ -349,15 +399,24 @@ export class CommunicationService {
 
     const gameId = client.gameId as string; // because the socket always has a known gameId attached to it, the gameId is known to exist.
 
-    // subscribe if the new subscription is different to the existing one
-    if (client.subscription !== `game:${gameId}`) {
-      client.subscription = `game:${gameId}`;
+    const clients = this.clientSubscriptions.get(`game:${gameId}`) || [];
 
-      await this.subClient.subscribe(`game:${gameId}`, (message: string) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(message);
-        }
-      });
+    if (clients.length === 0) {
+      // new connection, subscribe the instance to the channel
+      await this.subClient.subscribe(`game:${gameId}`, (message: string) =>
+        this.broadcastToGame(gameId, message),
+      );
+    }
+
+    const clientExists = clients.some(
+      (existingClient) => existingClient.playerId === client.playerId,
+    );
+
+    if (!clientExists) {
+      // if this client does not exist already, add and update
+      clients.push(client);
+
+      this.clientSubscriptions.set(`game:${gameId}`, clients);
     }
   }
 
@@ -553,6 +612,14 @@ export class CommunicationService {
 
     if (size < MIN_SIZE) {
       this.sendError(client, "Not enough players to start the game");
+      return;
+    }
+
+    // fetch the hostId of the game.
+    const hostId = await this.gameService.getHostId(gameId);
+
+    if (client.playerId !== hostId) {
+      this.sendError(client, "You must be the host to start a game");
       return;
     }
 
@@ -775,6 +842,14 @@ export class CommunicationService {
 
     const gameId = client.gameId as string;
 
+    // ensure that the client is the host of the game, as only the host should be able to restart the game
+    const hostId = await this.gameService.getHostId(gameId);
+
+    if (hostId !== client.playerId) {
+      this.sendError(client, "You must be the host to restart the game");
+      return;
+    }
+
     // create a new game with the same players and return the new id
     const newGameId = await this.gameService.restartGame(gameId);
 
@@ -788,8 +863,11 @@ export class CommunicationService {
       }),
     );
 
-    // unsubscribe from the old game
-    await this.subClient.unsubscribe(`game:${client.gameId}`);
+    // unsubscribe this instance from the game, as there would be nobody listening to it now
+    await this.subClient.unsubscribe(`game:${gameId}`);
+
+    // clear the client mapping for this game channel
+    this.clientSubscriptions.delete(`game:${gameId}`);
   }
 
   private async handleLeaveGame(client: SocketClient) {
@@ -815,11 +893,8 @@ export class CommunicationService {
       payload: {},
     });
 
-    // unsubscribe the client from that channel
-
-    await this.subClient.unsubscribe(`game:${gameId}`);
-
-    client.gameId = undefined;
+    // unsubscribe the client from the game
+    await this.unsubscribeFromGame(client);
 
     // update others if there is a new host, if there was no host, the game has no players, no point in broadcasting it
     if (updatedHostId) {

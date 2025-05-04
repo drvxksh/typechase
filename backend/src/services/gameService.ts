@@ -222,6 +222,19 @@ export class GameService {
     return null;
   }
 
+  public async getHostId(gameId: string) {
+    const validGameId = await this.validateGameId(gameId);
+
+    if (validGameId) {
+      const gameObj = await this.storageService.getGameObj(gameId);
+
+      return gameObj.hostId;
+    }
+
+    console.warn("Fetching the host id for an invalid game");
+    return null;
+  }
+
   /** Returns the lobby for a given game. Null if the game is invalid */
   public async getLobby(gameId: string) {
     // ensure that the given gameId is valid
