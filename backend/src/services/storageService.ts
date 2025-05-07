@@ -1,26 +1,23 @@
 import { createClient, RedisClientType } from "redis";
 import { Game, GameResult, Player, TTL } from "../types";
+import { LoggingService } from "./loggingService";
 
 /** Stores game,player and gameResult objects */
 export class StorageService {
   private static instance: StorageService;
   private redisClient: RedisClientType;
+  private logger = LoggingService.getInstance();
 
   private constructor() {
-    // instantiate the redis client.
-    // this.redisClient = createClient({
-    //   socket: {
-    //     host: "redis",
-    //     port: 6379,
-    //   },
-    // });
-    this.redisClient = createClient();
-
-    this.redisClient.on("error", (error) =>
-      console.error("Redis client error:", error)
-    );
-
-    this.redisClient.connect();
+    this.redisClient = createClient({
+      url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
+    });
+    this.redisClient
+      .connect()
+      .then(() => this.logger.info("Redis client connected"))
+      .catch((err) =>
+        this.logger.error(`Redis connection client error: ${err}`),
+      );
   }
 
   /** Returns a singleton instance of StorageService */
@@ -46,7 +43,7 @@ export class StorageService {
     }
 
     const game = (await this.redisClient.json.get(
-      `game:${gameId}`
+      `game:${gameId}`,
     )) as unknown as Game;
 
     // refresh the TTL
@@ -80,7 +77,7 @@ export class StorageService {
     }
 
     const player = (await this.redisClient.json.get(
-      `player:${playerId}`
+      `player:${playerId}`,
     )) as unknown as Player;
 
     // refresh the expiry of the player obj
@@ -104,7 +101,7 @@ export class StorageService {
    */
   public async getGameResultObj(gameId: string) {
     const gameResultExists = await this.redisClient.exists(
-      `gameResult:${gameId}`
+      `gameResult:${gameId}`,
     );
 
     if (gameResultExists !== 1) {
@@ -112,7 +109,7 @@ export class StorageService {
     }
 
     const gameResultObj = (await this.redisClient.json.get(
-      `gameResult:${gameId}`
+      `gameResult:${gameId}`,
     )) as unknown as GameResult;
 
     // refresh the expiry of the player obj
@@ -147,7 +144,7 @@ export class StorageService {
   /** Verifies whether a gameResult object with the given gameId exists or not */
   public async validateGameResultId(gameId: string) {
     const gameResultExists = await this.redisClient.exists(
-      `gameResult:${gameId}`
+      `gameResult:${gameId}`,
     );
 
     return gameResultExists === 1;

@@ -1,13 +1,14 @@
 import express from "express";
 import http from "http";
 import { CommunicationService } from "./services/communicationService";
+import { LoggingService } from "./services/loggingService";
 
+const logger = LoggingService.getInstance();
 const PORT = process.env.PORT || 3000;
 
 const app = express();
 const server = http.createServer(app);
 
-// Attaches the server to the communication service.
 CommunicationService.initialize(server);
 
 app.get("/", (req, res) => {
@@ -15,5 +16,5 @@ app.get("/", (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Server is running at http://localhost:${PORT}`);
+  logger.info(`Server is running at http://localhost:${PORT}`);
 });
