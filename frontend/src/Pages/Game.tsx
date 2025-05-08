@@ -1,4 +1,4 @@
-import { Copy, Crown } from "lucide-react";
+import { Copy, Info, User } from "lucide-react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
 import Logo from "../components/Logo";
@@ -12,8 +12,8 @@ import useGameCompletedManagement from "../hooks/useGameCompletedManagement";
 
 export default function Game() {
   return (
-    <section className="h-full px-4">
-      <header className="p-2">
+    <section className="h-full">
+      <header className="border-b border-zinc-100 p-2">
         <Logo />
       </header>
       <RenderGameByStatus />
@@ -29,7 +29,7 @@ function RenderGameByStatus() {
 
   // validate the gameId and fetch the status and count in case the game is starting
   const { gameStatus } = useGameStatus(gameId);
-  // const gameStatus = GameStatus.IN_PROGRESS;
+  // const gameStatus = GameStatus.WAITING;
 
   switch (gameStatus) {
     case GameStatus.WAITING:
@@ -70,36 +70,60 @@ function GameWaiting({ gameId }: { gameId: string }) {
 
   const handleChangeUsername = () => {
     if (playerNameInputRef.current) {
+      console.log("new username is", playerNameInputRef.current.value);
       changeUsername(playerNameInputRef.current.value);
     }
   };
 
+  // const lobby: Lobby = {
+  //   hostId: "123",
+  //   players: [
+  //     {
+  //       playerId: "123",
+  //       playerName: "User 1",
+  //     },
+  //     {
+  //       playerId: "234",
+  //       playerName: "User 2",
+  //     },
+  //   ],
+  // };
+
   const currentUserId = localStorage.getItem("playerId");
+  // const currentUserId = "123";
   const isHost = currentUserId === lobby?.hostId;
 
   return (
     <section className="mx-auto mt-[15vh] flex max-w-xl flex-col items-center justify-center gap-5">
-      <header className="flex w-full flex-col gap-5">
-        <h1 className="font-inter text-center text-3xl font-semibold">
-          Waiting for other players...
+      <header className="flex items-center gap-2">
+        <Info className="size-6 text-blue-600" />
+        <h1 className="font-inter font-bold text-blue-600 sm:text-2xl">
+          Waiting for the host to start...
         </h1>
+      </header>
+      <div className="w-full">
+        <h1 className="px-2 text-lg font-medium">Game Invite Code</h1>
         <div
           className="flex w-full cursor-pointer items-center rounded-full px-4 py-2 outline outline-zinc-100"
           onClick={handleCopyInviteCode}
         >
           <input
-            className="w-full cursor-pointer font-mono text-zinc-700 focus:outline-none"
+            className="w-full cursor-pointer font-mono text-sm text-zinc-700 focus:outline-none"
             value={gameId}
             readOnly
           />
           <Copy className="size-5 cursor-pointer text-zinc-300 transition-colors duration-300 hover:text-zinc-600" />
         </div>
-      </header>
-      <section className="flex w-full flex-col gap-3 rounded-xl p-4 outline outline-zinc-100">
-        <div className="flex flex-col space-y-1 divide-y divide-zinc-100">
+      </div>
+      <section className="flex w-full flex-col gap-1">
+        <header className="px-2 text-lg font-medium">
+          <h1>Current Lineup</h1>
+        </header>
+        <div className="flex flex-col space-y-1 divide-y divide-zinc-100 rounded-xl p-4 outline outline-zinc-100">
           {lobby &&
             lobby.players.map((item) => (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1">
+                <User className="size-5" />
                 <input
                   key={item.playerId}
                   defaultValue={item.playerName}
@@ -108,7 +132,9 @@ function GameWaiting({ gameId }: { gameId: string }) {
                   ref={playerNameInputRef}
                   onFocus={handleChangeUsername}
                 />
-                {lobby.hostId === item.playerId && <Crown className="size-5" />}
+                {lobby.hostId === item.playerId && (
+                  <span className="text-xs">(host)</span>
+                )}
               </div>
             ))}
         </div>
@@ -139,7 +165,7 @@ function GameStarting() {
   return (
     <section className="flex h-[25vh] items-center justify-center">
       <h1 className="font-heading text-3xl font-bold sm:text-4xl">
-        starting in {count}
+        Starting in {count}
       </h1>
     </section>
   );
