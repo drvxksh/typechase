@@ -79,10 +79,10 @@ export default function Landing() {
         </div>
         <section className="flex flex-col items-center gap-5">
           <header className="flex flex-col items-center justify-center sm:gap-2">
-            <h1 className="font-heading blue-gradient-text bg-clip-text text-center text-[41px] font-bold text-transparent sm:text-5xl">
-              <span className="inline-block">Race Live</span>
+            <h1 className="font-heading blue-gradient-text bg-clip-text text-center text-[38px] leading-12 font-bold text-transparent sm:text-5xl sm:leading-14">
+              <span className="inline-block">Fast Fingers? Prove It!</span>
             </h1>
-            <h2 className="font-description max-w-2xl text-center text-[14px] font-medium text-zinc-700 sm:text-lg">
+            <h2 className="font-description max-w-2xl text-center text-[13px] font-medium text-zinc-700 sm:text-lg">
               A real-time multiplayer typing game. Join other rooms or create
               your own rooms — no logins, no fuss.
             </h2>
@@ -96,16 +96,28 @@ export default function Landing() {
                 </span>
               </p>
             ) : (
-              <p className="flex cursor-not-allowed items-center gap-1">
-                <DatabaseZap className="size-5 text-red-500" />
-                <span className="font-inter text-xs text-zinc-600 italic">
-                  Server Error. Please try again later.
-                </span>
-              </p>
+              <div className="font-inter flex flex-col items-center text-[11px] text-zinc-500 italic sm:text-xs">
+                <p className="flex items-center gap-1">
+                  <DatabaseZap className="size-5 text-red-500" />
+                  <span className="">
+                    Server Unreachable. Please try again later.
+                  </span>
+                </p>
+                <p className="">
+                  If it's been a while,{" "}
+                  <a
+                    href="https://github.com/drvxksh/typechase/issues/new"
+                    target="_blank"
+                    className="cursor-pointer text-blue-500 underline"
+                  >
+                    raise an issue
+                  </a>
+                </p>
+              </div>
             ))}
           {isConnected && (
             <div
-              className={`flex w-[18rem] ${joinBtnLoader || playBtnLoader ? "cursor-not-allowed" : "cursor-text"} items-center rounded-full bg-transparent px-4 py-3 outline-2 outline-zinc-300 transition-all duration-200 focus-within:outline-zinc-400 sm:w-[22rem]`}
+              className={`flex w-[18rem] ${joinBtnLoader || playBtnLoader ? "cursor-not-allowed" : "cursor-text"} items-center rounded-full bg-transparent px-4 py-2 outline-2 outline-zinc-200 transition-all duration-200 focus-within:outline-zinc-300 sm:w-[25rem]`}
               onClick={() => {
                 if (inviteCodeInputRef.current)
                   inviteCodeInputRef.current.focus();
@@ -117,7 +129,20 @@ export default function Landing() {
                 placeholder="Enter the invite code..."
                 ref={inviteCodeInputRef}
                 disabled={playBtnLoader || joinBtnLoader}
-                className={`${joinBtnLoader || playBtnLoader ? "cursor-not-allowed" : "cursor-text"} w-full text-xs text-zinc-500 focus:outline-none sm:text-sm`}
+                className={`${
+                  joinBtnLoader || playBtnLoader
+                    ? "cursor-not-allowed"
+                    : "cursor-text"
+                } w-full text-xs text-zinc-500 focus:outline-none sm:text-sm`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleJoinGame();
+                  } else if (e.key === "Escape") {
+                    if (inviteCodeInputRef.current) {
+                      inviteCodeInputRef.current.value = "";
+                    }
+                  }
+                }}
               />
               <button
                 onClick={handleJoinGame}
@@ -153,6 +178,15 @@ export default function Landing() {
           )}
         </section>
       </section>
+      <footer className="font-logo px-2 text-right text-xs">
+        <a
+          href="https://x.com/drvxksh"
+          target="_blank"
+          className="hover:text-blue-500 hover:underline"
+        >
+          ~drvxksh
+        </a>
+      </footer>
     </section>
   );
 }

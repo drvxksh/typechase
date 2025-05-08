@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useSocketMessaging } from "./useSocketMessaging";
 
 type WebSocketResponse = {
-  // TODO implement this in the backend
   event: "game_starting_countdown";
   payload: {
     count: number;

@@ -140,7 +140,14 @@ export default function useConnectSocket(): [
 
             // redirect the player if it was part in the middle of a game
             if (data.payload.existingGameId) {
-              toast.info("Redirecting to your game");
+              // TODO: make this functional
+              toast.info(
+                "We see you have an ongoing game. Would you like to rejoin?",
+                {
+                  action: <button>Yes</button>,
+                  cancel: <button>No</button>,
+                },
+              );
               navigator(`/game/${data.payload.existingGameId}`);
             }
 
@@ -152,7 +159,9 @@ export default function useConnectSocket(): [
             break;
           }
           case "disconnect": {
-            toast.error("You were disconnected from the game");
+            toast.error(
+              "Uh-oh! Connection dropped. You'll need to wait for the game to accept new players to jump back in!",
+            );
             navigator("/");
           }
         }

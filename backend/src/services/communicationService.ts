@@ -202,7 +202,7 @@ export class CommunicationService {
         this.handleGetGameResult(client);
         break;
       case MessageEvent.RESTART_GAME:
-        this.handleRestartGame(client); // TODO ensure that this is only initiated by the host. similarly check start game as well
+        this.handleRestartGame(client);
         break;
       case MessageEvent.LEAVE_GAME:
         this.handleLeaveGame(client);
