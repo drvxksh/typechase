@@ -76,14 +76,6 @@ export default function useGameInProgressManagement() {
           case "player_update":
             {
               // update the players object
-              // setPlayers(
-              //   players.map((player) =>
-              //     player.playerId === data.payload.playerId
-              //       ? { ...player, position: data.payload.position }
-              //       : { ...player },
-              //   ),
-              // );
-
               setPlayers((prevPlayers) =>
                 prevPlayers.map((player) =>
                   player.playerId === data.payload.playerId
@@ -103,7 +95,7 @@ export default function useGameInProgressManagement() {
     return () => {
       socket.removeEventListener("message", handleMessage);
     };
-  }, [socket]);
+  }, [socket, sendMessage]);
 
   const sendUpdatedPosition = useCallback(
     (position: number) => {
@@ -112,13 +104,16 @@ export default function useGameInProgressManagement() {
     [sendMessage],
   );
 
-  const finishGame = (wpm: number, accuracy: number, time: number) => {
-    sendMessage("finish_game", {
-      wpm,
-      accuracy,
-      time,
-    });
-  };
+  const finishGame = useCallback(
+    (wpm: number, accuracy: number, time: number) => {
+      sendMessage("finish_game", {
+        wpm,
+        accuracy,
+        time,
+      });
+    },
+    [sendMessage],
+  );
 
   return { gameText, sendUpdatedPosition, players, gameStartTime, finishGame };
 }
