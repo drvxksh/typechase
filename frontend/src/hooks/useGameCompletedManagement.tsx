@@ -5,10 +5,10 @@ type GameResult = {
   players: {
     id: string;
     name: string;
-    wpm: string;
-    accuracy: string;
-    time: string;
-    position: string;
+    wpm: number;
+    accuracy: number;
+    time: number;
+    position: number;
   }[];
 };
 
@@ -35,7 +35,15 @@ export default function useGameCompletedManagement() {
       let data: WebSocketResponse | null = null;
 
       try {
-        data = JSON.parse(event.data);
+        data = JSON.parse(event.data, (key, value) => {
+          if (
+            ["wpm", "accuracy", "time", "position"].includes(key) &&
+            typeof value === "string"
+          ) {
+            return Number(value);
+          }
+          return value;
+        });
       } catch (err) {
         console.error("couldn't parse backend response", err);
       }

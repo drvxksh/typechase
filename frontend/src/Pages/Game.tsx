@@ -1,14 +1,26 @@
-import { Copy, Info, User } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Copy,
+  Crown,
+  Info,
+  KeyRound,
+  RotateCcw,
+  Target,
+  User,
+} from "lucide-react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
 import Logo from "../components/Logo";
-import useGameStatus from "../hooks/useGameStatus";
 import useLobbyManagement from "../hooks/useLobbyManagement";
 import { GameStatus } from "../types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useGameInProgressManagement from "../hooks/useGameInProgressManagement";
 import useGameStartingManagement from "../hooks/useGameStartingManagement";
 import useGameCompletedManagement from "../hooks/useGameCompletedManagement";
+import useGameStatus from "../hooks/useGameStatus";
 
 export default function Game() {
   return (
@@ -141,7 +153,7 @@ function GameWaiting({ gameId }: { gameId: string }) {
           {isHost && (
             <button
               onClick={handleStartGame}
-              className="font-inter w-full cursor-pointer rounded-md bg-blue-600 text-white"
+              className="font-inter w-full cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-white"
             >
               Start Game
             </button>
@@ -367,7 +379,53 @@ function GameInProgress() {
 }
 
 function GameCompleted() {
+  type SortField = "position" | "wpm" | "accuracy" | "time";
+  type SortDirection = "asc" | "desc";
+
   const { result, restartGame, leaveGame } = useGameCompletedManagement();
+
+  const [sortField, setSortField] = useState<SortField>("position");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection(field === "time" ? "asc" : "desc");
+    }
+  };
+
+  const currentUserId = localStorage.getItem("playerId");
+  const currentUser = result.players.find(
+    (player) => player.id === currentUserId,
+  );
+
+  const sortedPlayers = [...result.players].sort((a, b) => {
+    let comparision = 0;
+    if (sortField === "position") {
+      comparision = a.position - b.position;
+    } else if (sortField === "wpm") {
+      comparision = b.wpm - a.wpm;
+    } else if (sortField === "accuracy") {
+      comparision = b.accuracy - a.accuracy;
+    } else if (sortField === "time") {
+      comparision = a.time - b.time;
+    }
+
+    return sortDirection === "asc" ? comparision : -comparision;
+  });
+
+  const getPositionLabel = (position: number) => `P${position}`;
+
+  const SortIndicator = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return null;
+    return sortDirection === "asc" ? (
+      <ChevronUp className="h-4 w-4" />
+    ) : (
+      <ChevronDown className="h-4 w-4" />
+    );
+  };
 
   const handleRestartGame = () => {
     restartGame();
@@ -378,18 +436,166 @@ function GameCompleted() {
   };
 
   return (
-    <section>
-      The game is now completed{" "}
-      <button onClick={handleLeaveGame}>Leave Game</button>{" "}
-      <button onClick={handleRestartGame}>Restart</button>
-      <div>
-        Game results
-        {result.players.map((player) => (
-          <div>
-            <p>{player.name}</p>
-            <p>{player.wpm}</p>
+    <section className="p-4 md:p-8">
+      <div className="mx-auto max-w-4xl">
+        <div className="mb-8 text-center">
+          <h1 className="mb-2 text-4xl font-bold">Race Complete!</h1>
+          <p className="text-zinc-400">Final standings for your typing race</p>
+        </div>
+
+        {/* Current User Stats */}
+        {currentUser && (
+          <div className="mb-8 overflow-hidden rounded-lg shadow outline outline-zinc-100">
+            <header className="bg-zinc-200/40 p-2">
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Your Results
+              </div>
+            </header>
+            <div className="p-6">
+              <div className="flex flex-col items-center gap-6 md:flex-row">
+                <div className="relative">
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-zinc-200/20">
+                    <div className="text-3xl font-bold">
+                      {getPositionLabel(currentUser.position)}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                  <h2 className="font-poppins text-2xl font-bold">
+                    {currentUser.name}
+                  </h2>
+                  <p className="mb-2 text-zinc-700">
+                    {currentUser.position === 1
+                      ? "Winner!"
+                      : currentUser.position === 2
+                        ? "Runner-up!"
+                        : currentUser.position === 3
+                          ? "Podium Finish!"
+                          : `Finished ${getPositionLabel(currentUser.position)}`}
+                  </p>
+                  <div className="mt-4 grid grid-cols-3 gap-4">
+                    <div className="flex flex-col items-center md:items-start">
+                      <div className="flex items-center gap-1 text-sm text-zinc-700">
+                        <KeyRound className="h-4 w-4" />
+                        <span>WPM</span>
+                      </div>
+                      <span className="text-xl font-bold">
+                        {currentUser.wpm}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center md:items-start">
+                      <div className="flex items-center gap-1 text-sm text-zinc-700">
+                        <Target className="h-4 w-4" />
+                        <span>Accuracy</span>
+                      </div>
+                      <span className="text-xl font-bold">
+                        {currentUser.accuracy}%
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center md:items-start">
+                      <div className="flex items-center gap-1 text-sm text-zinc-700">
+                        <Clock className="h-4 w-4" />
+                        <span>Time</span>
+                      </div>
+                      <span className="text-xl font-bold">
+                        {currentUser.time}s
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        ))}
+        )}
+
+        {/* Leaderboard */}
+        <div className="font-inter mb-8">
+          <div className="pb-2">
+            <h1 className="font-semibold">Leaderboard</h1>
+          </div>
+          <div className="rounded-lg p-3 outline outline-zinc-100">
+            {/* Sortable header */}
+            <div className="mb-4 grid grid-cols-7 gap-2 text-sm font-medium">
+              <div className="col-span-1">Position</div>
+              <div className="col-span-2">Player</div>
+              <div
+                className="col-span-1 flex cursor-pointer items-center gap-1"
+                onClick={() => handleSort("wpm")}
+              >
+                WPM <SortIndicator field="wpm" />
+              </div>
+              <div
+                className="col-span-1 flex cursor-pointer items-center gap-1"
+                onClick={() => handleSort("accuracy")}
+              >
+                Accuracy <SortIndicator field="accuracy" />
+              </div>
+              <div
+                className="col-span-1 flex cursor-pointer items-center gap-1"
+                onClick={() => handleSort("time")}
+              >
+                Time <SortIndicator field="time" />
+              </div>
+              <div
+                className="col-span-1 flex cursor-pointer items-center gap-1"
+                onClick={() => handleSort("position")}
+              >
+                Rank <SortIndicator field="position" />
+              </div>
+            </div>
+
+            {/* Leaderboard rows */}
+            <div className="space-y-2">
+              {sortedPlayers.map((player) => (
+                <div
+                  key={player.id}
+                  className={`grid grid-cols-7 items-center gap-2 rounded-md p-3 text-sm outline outline-zinc-50 ${player.id === currentUserId ? "bg-zinc-100" : ""}`}
+                >
+                  <div className="col-span-1 font-bold">
+                    {getPositionLabel(player.position)}
+                  </div>
+                  <div className="col-span-2 flex items-center gap-2 font-medium">
+                    {player.id === currentUserId && (
+                      <User className="h-4 w-4" />
+                    )}
+                    {player.name}
+                  </div>
+                  <div className="col-span-1">{player.wpm}</div>
+                  <div className="col-span-1">{player.accuracy}%</div>
+                  <div className="col-span-1">{player.time}s</div>
+                  <div className="col-span-1">
+                    {player.position === 1 ? (
+                      <div className="flex items-center gap-1 text-yellow-500">
+                        <Crown className="h-4 w-4" /> 1
+                      </div>
+                    ) : (
+                      `${player.position}`
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="font-inter flex flex-col justify-center gap-4 sm:flex-row">
+          <button
+            onClick={handleLeaveGame}
+            className="flex items-center gap-2 rounded-md bg-red-500 px-4 py-3 text-white"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Leave Race
+          </button>
+          <button
+            onClick={handleRestartGame}
+            className="flex items-center gap-2 rounded-md bg-blue-500 px-4 py-3 text-white"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Race Again
+          </button>
+        </div>
       </div>
     </section>
   );
