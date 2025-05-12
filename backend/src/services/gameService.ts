@@ -1,4 +1,3 @@
-// import { loremIpsum } from "lorem-ipsum";
 import { v4 as uuid } from "uuid";
 import {
   FinishGamePayload,
@@ -9,6 +8,7 @@ import {
   Player,
 } from "../types";
 import { StorageService } from "./storageService";
+import { paragraph } from "txtgen";
 
 /** Manages game/player related operations */
 export class GameService {
@@ -294,16 +294,10 @@ export class GameService {
 
       // if the game is starting, add the game text.
       if (newState === GameStatus.STARTING) {
-        // const gameText = loremIpsum({
-        //   count: 1,
-        //   units: "sentences",
-        //   sentenceLowerBound: 5,
-        //   sentenceUpperBound: 15,
-        //   format: "plain",
-        // });
+        // const gameText = paragraph();
+        const gameText = "Sample";
 
-        gameObj.gameText = "asdf";
-        // gameObj.gameText = gameText.trim(); // avoid any spaces at the ends
+        gameObj.gameText = gameText.trim();
       }
 
       await this.storageService.saveGameObj(gameObj);

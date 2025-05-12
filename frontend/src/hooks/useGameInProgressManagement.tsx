@@ -75,6 +75,7 @@ export default function useGameInProgressManagement() {
           }
           case "player_update":
             {
+              console.log("incoming player update", data.payload.position);
               // update the players object
               setPlayers((prevPlayers) =>
                 prevPlayers.map((player) =>

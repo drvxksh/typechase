@@ -1,6 +1,8 @@
 import { createClient, RedisClientType } from "redis";
 import { Game, GameResult, Player, TTL } from "../types";
 import { LoggingService } from "./loggingService";
+import "dotenv/config";
+import invariant from "tiny-invariant";
 
 /** Stores game,player and gameResult objects */
 export class StorageService {
@@ -9,6 +11,15 @@ export class StorageService {
   private logger = LoggingService.getInstance();
 
   private constructor() {
+    invariant(
+      process.env.REDIS_HOST,
+      "Missing REDIS_HOST for the storage service. Did you set up the env?",
+    );
+    invariant(
+      process.env.REDIS_PORT,
+      "Missing REDIS_PORT for the storage service. Did you set up the env?",
+    );
+
     this.redisClient = createClient({
       url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
     });

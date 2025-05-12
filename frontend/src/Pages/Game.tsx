@@ -41,6 +41,7 @@ function RenderGameByStatus() {
 
   // validate the gameId and fetch the status and count in case the game is starting
   const { gameStatus } = useGameStatus(gameId);
+  // const gameStatus = GameStatus.IN_PROGRESS;
 
   switch (gameStatus) {
     case GameStatus.WAITING:
@@ -186,9 +187,34 @@ function GameInProgress() {
   const { gameText, sendUpdatedPosition, players, gameStartTime, finishGame } =
     useGameInProgressManagement();
 
+  // const gameStartTime = 123;
+  // const gameText = "Sample Text";
+  // const players = useMemo(
+  //   () => [
+  //     {
+  //       playerId: "player-123-abc",
+  //       playerName: "Alice",
+  //       position: 0,
+  //     },
+  //     {
+  //       playerId: "player-456-def",
+  //       playerName: "Bob",
+  //       position: 15,
+  //     },
+  //     {
+  //       playerId: "player-789-ghi",
+  //       playerName: "Charlie",
+  //       position: 42,
+  //     },
+  //   ],
+  //   [],
+  // );
+
   const [userInput, setUserInput] = useState("");
+  const userInputRef = useRef<HTMLTextAreaElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
-  const [elapsedTime, setElapsedTime] = useState(0);
+  const elapsedTimerIntervalIdRef = useRef<number>(null);
+  const elapsedTimeRef = useRef(0);
 
   const currentPlayerId = localStorage.getItem("playerId");
 
@@ -222,44 +248,79 @@ function GameInProgress() {
 
   // update the elapsedTime
   useEffect(() => {
-    const timer = setInterval(() => {
+    elapsedTimerIntervalIdRef.current = setInterval(() => {
       if (gameStartTime) {
-        setElapsedTime((Date.now() - gameStartTime) / 1000);
+        const newTime = (Date.now() - gameStartTime) / 1000;
+        elapsedTimeRef.current = newTime;
       }
     }, 100);
 
-    return () => clearInterval(timer);
+    return () => {
+      if (elapsedTimerIntervalIdRef.current) {
+        clearInterval(elapsedTimerIntervalIdRef.current);
+      }
+      elapsedTimerIntervalIdRef.current = null;
+    };
   }, [gameStartTime]);
 
-  // periodically send in the updated position of the client
   useEffect(() => {
-    if (!gameStartTime) return;
-
     const intervalId = setInterval(() => {
-      const currentPosition = userInput.length;
+      const input = userInputRef.current?.value || "";
+      const currentPosition = input.length;
 
-      if (currentPosition < gameText.length) {
-        sendUpdatedPosition(currentPosition);
-      } else {
-        const finalWpm = calculateWPM(currentPosition, elapsedTime);
-        const finalAccuracy = calculateAccuracy(userInput, gameText);
-        finishGame(finalWpm, finalAccuracy, elapsedTime);
+      sendUpdatedPosition(currentPosition);
+
+      if (currentPosition >= gameText.length) {
+        const finalWpm = calculateWPM(currentPosition, elapsedTimeRef.current);
+        const finalAccuracy = calculateAccuracy(input, gameText);
+        finishGame(finalWpm, finalAccuracy, elapsedTimeRef.current);
 
         clearInterval(intervalId);
       }
-    }, 5000);
+    }, 2000);
 
     return () => clearInterval(intervalId);
   }, [
-    userInput,
-    gameText,
-    gameStartTime,
-    elapsedTime,
-    calculateWPM,
     calculateAccuracy,
+    calculateWPM,
     finishGame,
+    gameText,
     sendUpdatedPosition,
   ]);
+
+  // periodically send in the updated position of the client
+  // useEffect(() => {
+  //   console.log("inside the useEffect");
+  //   if (!gameStartTime) return;
+
+  //   const intervalId = setInterval(() => {
+  //     console.log("inside the interval");
+  //     const currentPosition = userInput.length;
+
+  //     // send the updated position in all the situations.
+  //     sendUpdatedPosition(currentPosition);
+
+  //     // if the game is over, notify the backend
+  //     if (currentPosition >= gameText.length) {
+  //       const finalWpm = calculateWPM(currentPosition, elapsedTimeRef.current);
+  //       const finalAccuracy = calculateAccuracy(userInput, gameText);
+  //       finishGame(finalWpm, finalAccuracy, elapsedTimeRef.current);
+
+  //       clearInterval(intervalId);
+  //     }
+  //   }, 5000);
+
+  //   return () => clearInterval(intervalId);
+  // }, [
+  //   userInput,
+  //   gameText,
+  //   gameStartTime,
+  //   elapsedTimeRef,
+  //   calculateWPM,
+  //   calculateAccuracy,
+  //   finishGame,
+  //   sendUpdatedPosition,
+  // ]);
 
   // focus the textarea when this component loads/mounts
   useEffect(() => {
@@ -270,11 +331,25 @@ function GameInProgress() {
 
   // update the input value
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    // don't accept more input if the game is finished
-    if (userInput.length >= gameText.length) {
+    if (!elapsedTimerIntervalIdRef.current) {
+      // the game is already done, return;
+      return;
+    }
+
+    const newInput = e.target.value;
+
+    if (newInput.length === gameText.length) {
+      if (elapsedTimerIntervalIdRef.current) {
+        clearInterval(elapsedTimerIntervalIdRef.current);
+        elapsedTimerIntervalIdRef.current = null;
+        console.log("stopped the elapsed time");
+      }
+    }
+
+    if (newInput.length > gameText.length) {
       return;
     } else {
-      setUserInput(e.target.value);
+      setUserInput(newInput);
     }
   };
 
@@ -316,7 +391,7 @@ function GameInProgress() {
       const isCurrentPlayer =
         currentPlayerId && player.playerId === currentPlayerId;
 
-      const wpm = calculateWPM(player.position, elapsedTime);
+      const wpm = calculateWPM(player.position, elapsedTimeRef.current);
 
       return (
         <div key={player.playerId} className="mb-4">
@@ -354,7 +429,13 @@ function GameInProgress() {
         </div>
       );
     });
-  }, [currentPlayerId, players, calculateWPM, calculateProgress, elapsedTime]);
+  }, [
+    currentPlayerId,
+    players,
+    calculateWPM,
+    calculateProgress,
+    elapsedTimeRef,
+  ]);
 
   return (
     <section className="mt-[15vh] w-full px-4">
@@ -363,7 +444,10 @@ function GameInProgress() {
           {renderText}
         </div>
         <textarea
-          ref={textAreaRef}
+          ref={(el) => {
+            textAreaRef.current = el;
+            userInputRef.current = el;
+          }}
           value={userInput}
           onChange={handleInputChange}
           spellCheck={false}

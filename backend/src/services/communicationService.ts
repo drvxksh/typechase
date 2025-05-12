@@ -14,6 +14,8 @@ import {
 } from "../types";
 import { GameService } from "./gameService";
 import { LoggingService } from "./loggingService";
+import "dotenv/config";
+import invariant from "tiny-invariant";
 
 /**
  * Manages the communication to the client.
@@ -29,6 +31,15 @@ export class CommunicationService {
   private logger = LoggingService.getInstance();
 
   private constructor(server: http.Server) {
+    invariant(
+      process.env.REDIS_HOST,
+      "Missing REDIS_HOST in the communicaiton service, did you set up the env?",
+    );
+    invariant(
+      process.env.REDIS_PORT,
+      "Missing REDIS_PORT in the communicaiton service, did you set up the env?",
+    );
+
     // instantiate all the services
     this.pubClient = createClient({
       url: `redis://${process.env.REDIS_HOST}:${process.env.REDIS_PORT}`,
@@ -61,35 +72,37 @@ export class CommunicationService {
         const playerId = socketClient.playerId;
         const gameId = socketClient.gameId;
 
-        let updatedHostId = null;
+        if (gameId) {
+          let updatedHostId = null;
 
-        // unsubscribe the client from the game
-        await this.unsubscribeFromGame(socketClient);
+          // unsubscribe the client from the game
+          await this.unsubscribeFromGame(socketClient);
 
-        try {
-          // remove the player from the game and fetch the updated host id (if the player was a part of any game).
-          updatedHostId = await this.gameService.removePlayerFromGame(
-            playerId,
-            gameId,
-          );
-        } catch (err) {
-          LoggingService.getInstance().error(
-            `Couldn't remove the player from the game while closing the connection: ${err}`,
-          );
-        }
+          try {
+            // remove the player from the game and fetch the updated host id (if the player was a part of any game).
+            updatedHostId = await this.gameService.removePlayerFromGame(
+              playerId,
+              gameId,
+            );
+          } catch (err) {
+            LoggingService.getInstance().error(
+              `Couldn't remove the player from the game while closing the connection: ${err}`,
+            );
+          }
 
-        if (updatedHostId) {
-          // if there have been any updates, notify others.
-          await this.pubClient.publish(
-            `game:${gameId}`,
-            JSON.stringify({
-              event: BroadcastEvent.PLAYER_LEFT,
-              payload: {
-                updatedHostId,
-                playerId,
-              },
-            }),
-          );
+          if (updatedHostId) {
+            // if there have been any updates, notify others.
+            await this.pubClient.publish(
+              `game:${gameId}`,
+              JSON.stringify({
+                event: BroadcastEvent.PLAYER_LEFT,
+                payload: {
+                  updatedHostId,
+                  playerId,
+                },
+              }),
+            );
+          }
         }
       });
 
@@ -161,6 +174,8 @@ export class CommunicationService {
 
     const { event, payload } = message;
 
+    if (event !== MessageEvent.HEALTH_CHECK)
+      console.log("incoming event:", event);
     switch (event) {
       case MessageEvent.HEALTH_CHECK:
         await this.handleHealthCheck(client);
@@ -295,6 +310,8 @@ export class CommunicationService {
               existingGameId: gameInfo.gameId,
             },
           });
+
+          break;
         }
         default: {
           // disconnected in the middle of the game, back to the landing page
@@ -364,6 +381,7 @@ export class CommunicationService {
   /** Unsubscribes a client from the game. The instance unsubscribs from the channel if there are no clients listening to it */
   private async unsubscribeFromGame(client: SocketClient) {
     // validate the socket
+    console.log("unsubscribeFromGame invoking verifySocket");
     if (!this.verifySocket(client)) {
       return;
     }
@@ -389,6 +407,7 @@ export class CommunicationService {
   /** Subscribes a client to game updates via the pub-sub manager */
   private async subscribeToGame(client: SocketClient) {
     // validate the socket
+    console.log("subscribe to game invoking verifySocket");
     if (!this.verifySocket(client)) {
       return;
     }
@@ -407,6 +426,9 @@ export class CommunicationService {
     );
     if (!clientExists) {
       // if this client does not exist already, add and update
+      console.log(
+        `subscribing player:${client.playerId} to game:${client.gameId}`,
+      );
       clients.push(client);
 
       this.clientSubscriptions.set(`game:${gameId}`, clients);
@@ -441,6 +463,9 @@ export class CommunicationService {
     }
 
     const newGameId = await this.gameService.createGame(playerId);
+    // attach the gameId to the socket.
+    client.gameId = newGameId;
+
     this.send(client, {
       event: MessageEvent.CREATE_GAME,
       payload: {
@@ -496,6 +521,8 @@ export class CommunicationService {
     }
 
     await this.gameService.addPlayer(playerId, gameId);
+    // add the gameId to the socket.
+    client.gameId = gameId;
     this.send(client, {
       event: MessageEvent.JOIN_GAME,
       payload: {
@@ -520,6 +547,7 @@ export class CommunicationService {
   /** Verifies the incoming gameId and subscribes the client to the game(if valid). Returns false if no gameId was received */
   private async handleCheckGameId(client: SocketClient, payload: any) {
     // validate the socket.
+    console.log("handleCheckGameId invoking verify Socket");
     if (!this.verifySocket(client)) {
       return;
     }
@@ -530,6 +558,9 @@ export class CommunicationService {
     if (validGame) {
       // attach the socket client to this gameId
       client.gameId = gameId;
+      console.log(
+        `player:${client.playerId} checking the gameId and subscribing`,
+      );
       // subscribe the client to the gameId
       await this.subscribeToGame(client);
     }
@@ -544,6 +575,7 @@ export class CommunicationService {
   /** Returns the current game lobby of the given game */
   private async handleGetLobby(client: SocketClient) {
     // validate the client.
+    console.log("handleGetLobby invoking verifySocket");
     if (!this.verifySocket(client)) return;
 
     const gameId = client.gameId as string;
@@ -560,6 +592,7 @@ export class CommunicationService {
 
   /** Changes the player username and notifies other clients */
   private async handleChangeUsername(client: SocketClient, payload: any) {
+    console.log("handleChangeUsername invoking verifySocket");
     if (!this.verifySocket(client)) {
       return;
     }
@@ -602,6 +635,7 @@ export class CommunicationService {
 
   /** Updates the game status to STARTING and broadcasts the countdown. Updates the game to IN_PROGRESS after the countdown. */
   private async handleStartGame(client: SocketClient): Promise<void> {
+    console.log("handleStartGame invoking verifySocket");
     if (!this.verifySocket(client)) {
       return;
     }
@@ -701,6 +735,7 @@ export class CommunicationService {
 
   /** Sends the game text for the given game */
   private async handleGetGameText(client: SocketClient) {
+    console.log("handleGetGameText invoking verifySocket");
     if (!this.verifySocket(client)) {
       return;
     }
@@ -723,6 +758,7 @@ export class CommunicationService {
 
   /** Sends the game players with their initial position */
   private async handleGetGamePlayers(client: SocketClient) {
+    console.log("handleGetGamePlayers invoking the verifySocket");
     if (!this.verifySocket) {
       return;
     }
@@ -743,6 +779,7 @@ export class CommunicationService {
 
   /** Broadcasts player position updates */
   private async handlePlayerUpdate(client: SocketClient, payload: any) {
+    console.log("handlePlayerUpdate invoking verifySocket");
     if (!this.verifySocket(client)) {
       return;
     }
@@ -752,6 +789,7 @@ export class CommunicationService {
 
     // verify that the payload has the required fields
     if (!payload.position && isNaN(Number(payload.position))) {
+      console.log("early return due to invalid param");
       return;
     }
 
@@ -770,6 +808,7 @@ export class CommunicationService {
 
   /** Updates the game result by adding the incoming client. If all the players are finished, updates the game status */
   private async handleFinishGame(client: SocketClient, payload: any) {
+    console.log("handleFinishGame invoking verifySocket");
     if (!this.verifySocket(client)) {
       return;
     }
@@ -823,6 +862,7 @@ export class CommunicationService {
   /** Sends the gameResult to the client */
   private async handleGetGameResult(client: SocketClient) {
     // ensure that this connection is valid
+    console.log("handleGetGameResult invoking the verifySocket");
     if (!this.verifySocket(client)) {
       return;
     }
@@ -844,6 +884,7 @@ export class CommunicationService {
 
   private async handleRestartGame(client: SocketClient) {
     // verify this client
+    console.log("handleRestartGame invoking the verifySocket");
     if (!this.verifySocket(client)) {
       return;
     }
@@ -880,6 +921,7 @@ export class CommunicationService {
 
   private async handleLeaveGame(client: SocketClient) {
     //verify the socket.
+    console.log("handleLeaveGame invoking verifySocket");
     if (!this.verifySocket(client)) {
       return;
     }
@@ -903,6 +945,8 @@ export class CommunicationService {
 
     // unsubscribe the client from the game
     await this.unsubscribeFromGame(client);
+
+    client.gameId = undefined;
 
     // update others if there is a new host, if there was no host, the game has no players, no point in broadcasting it
     if (updatedHostId) {
