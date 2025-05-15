@@ -460,11 +460,18 @@ export class GameService {
       createdAt: new Date(),
     };
 
+    // save the new game
+    await this.storageService.saveGameObj(newGame);
+
+    // Update currentGameId for all players
+    for (const playerId of existingGameObj.playerIds) {
+      const playerObj = await this.storageService.getPlayerObj(playerId);
+      playerObj.currentGameId = newGame.id;
+      await this.storageService.savePlayerObj(playerObj);
+    }
+
     // delete the old game object
     await this.storageService.deleteGameObj(existingGameObj.id);
-
-    // save the game and return the new gameId
-    await this.storageService.saveGameObj(newGame);
 
     return newGame.id;
   }

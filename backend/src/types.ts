@@ -1,10 +1,5 @@
 import WebSocket from "ws";
 
-export interface SocketClient extends WebSocket {
-  playerId?: string;
-  gameId?: string;
-}
-
 export enum MessageEvent {
   "ERROR" = "error",
   "HEALTH_CHECK" = "health_check",
