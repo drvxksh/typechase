@@ -8,11 +8,13 @@ import {
   Player,
 } from "../types";
 import { StorageService } from "./storageService";
-import { paragraph } from "txtgen";
+import { generate } from "random-words";
+import { LoggingService } from "./loggingService";
 
 /** Manages game/player related operations */
 export class GameService {
   private storageService: StorageService;
+  private logger = LoggingService.getInstance();
 
   public constructor() {
     this.storageService = StorageService.getInstance();
@@ -28,6 +30,12 @@ export class GameService {
   ) {
     // if the player was a part of the game, remove it.
     if (playerId && gameId) {
+      const validGame = await this.validateGameId(gameId);
+      if (!validGame) {
+        this.logger.warn("Removing player from an invalid game ID");
+        return;
+      }
+
       const gameObj = await this.storageService.getGameObj(gameId);
 
       // the host is the only player of the game
@@ -104,7 +112,7 @@ export class GameService {
       }
     }
 
-    console.warn("Fetching game info for an invalid player");
+    this.logger.warn("Fetching game info for an invalid player");
     return gameInfo;
   }
 
@@ -167,7 +175,7 @@ export class GameService {
       return { playerId: player.id, playerName: player.name };
     }
 
-    console.warn("Fetching player info for an invalid player");
+    this.logger.warn("Fetching player info for an invalid player");
     return null;
   }
 
@@ -218,7 +226,7 @@ export class GameService {
       return gameObj.playerIds.length;
     }
 
-    console.warn("Fetching room size for an invalid game");
+    this.logger.warn("Fetching room size for an invalid game");
     return null;
   }
 
@@ -231,7 +239,7 @@ export class GameService {
       return gameObj.hostId;
     }
 
-    console.warn("Fetching the host id for an invalid game");
+    this.logger.warn("Fetching the host id for an invalid game");
     return null;
   }
 
@@ -260,7 +268,7 @@ export class GameService {
       };
     }
 
-    console.warn("Fetching lobby for an invalid game");
+    this.logger.warn("Fetching lobby for an invalid game");
     return null; // when the game was invalid
   }
 
@@ -278,7 +286,7 @@ export class GameService {
 
       return true;
     } else {
-      console.error("Changing username of an invalid player");
+      this.logger.warn("Changing username of an invalid player");
       return false;
     }
   }
@@ -294,9 +302,7 @@ export class GameService {
 
       // if the game is starting, add the game text.
       if (newState === GameStatus.STARTING) {
-        // const gameText = paragraph();
-        const gameText = "Sample";
-
+        const gameText = generate({ exactly: 50, join: " " });
         gameObj.gameText = gameText.trim();
       }
 
@@ -305,7 +311,7 @@ export class GameService {
       return true;
     }
 
-    console.warn("Updating the game status of an invalid game");
+    this.logger.warn("Updating the game status of an invalid game");
     return false;
   }
 
@@ -318,7 +324,7 @@ export class GameService {
       return gameObj.gameText;
     }
 
-    console.warn("Fetching the game text for an invalid game");
+    this.logger.warn("Fetching the game text for an invalid game");
     return null;
   }
 
@@ -343,7 +349,7 @@ export class GameService {
 
       return players;
     } else {
-      console.warn("Fetching the game players for an invalid game");
+      this.logger.warn("Fetching the game players for an invalid game");
       return null;
     }
   }
@@ -358,12 +364,12 @@ export class GameService {
     const validGameId = await this.validateGameId(gameId);
 
     if (!validPlayer) {
-      console.warn("Invalid player finishing the game");
+      this.logger.warn("Invalid player finishing the game");
       return;
     }
 
     if (!validGameId) {
-      console.warn("Invalid game is being finished");
+      this.logger.warn("Invalid game is being finished");
       return;
     }
 
@@ -410,7 +416,9 @@ export class GameService {
       return gameObj.playerIds.length === gameResultObj.players.length;
     }
 
-    console.warn("Checking the player finishing status for an invalid game");
+    this.logger.warn(
+      "Checking the player finishing status for an invalid game",
+    );
     return false;
   }
 
@@ -419,7 +427,7 @@ export class GameService {
     const validGameId = await this.validateGameId(gameId);
 
     if (!validGameId) {
-      console.warn("An invalid game cannot be marked finished");
+      this.logger.warn("An invalid game cannot be marked finished");
       return;
     }
 
@@ -443,7 +451,7 @@ export class GameService {
       return gameResultObj.players;
     }
 
-    console.warn("Fetching an invalid game result");
+    this.logger.warn("Fetching an invalid game result");
     return null;
   }
 
