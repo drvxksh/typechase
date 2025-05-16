@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ConnectionStatus } from "../types";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
+import { usePlayer } from "../context/PlayerContext";
 
 type WebSocketResponse =
   | {
@@ -40,6 +41,8 @@ export default function useConnectSocket(): [
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const healthCheckIntervalRef = useRef<number | null>(null);
   const pendingHealthCheckRef = useRef<boolean>(false);
+
+  const { playerId, setPlayerId, checkAndRestorePlayerId } = usePlayer();
 
   const navigator = useNavigate();
 
@@ -80,8 +83,11 @@ export default function useConnectSocket(): [
     };
 
     newSocket.onopen = () => {
+      // First check if playerId in localStorage was deleted and restore it if needed
+      checkAndRestorePlayerId();
+
       // fetch the existing playerId
-      const existingPlayerId = localStorage.getItem("playerId");
+      const existingPlayerId = playerId;
 
       // connect the backend
       const payload = {
@@ -124,12 +130,8 @@ export default function useConnectSocket(): [
           }
           case "connect": {
             // save the new playerId if it differs from the existing one
-            const playerId = data.payload.playerId;
-            const existingPlayerId = localStorage.getItem("playerId");
-
-            if (existingPlayerId !== playerId) {
-              localStorage.setItem("playerId", playerId);
-            }
+            const newPlayerId = data.payload.playerId;
+            setPlayerId(newPlayerId);
 
             // update the state variables
             connectionStatus = "connected";

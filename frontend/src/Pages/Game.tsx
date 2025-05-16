@@ -21,8 +21,12 @@ import useGameInProgressManagement from "../hooks/useGameInProgressManagement";
 import useGameStartingManagement from "../hooks/useGameStartingManagement";
 import useGameCompletedManagement from "../hooks/useGameCompletedManagement";
 import useGameStatus from "../hooks/useGameStatus";
+import { usePlayer } from "../context/PlayerContext";
+import { useLocalStorageMonitor } from "../hooks/useLocalStorageMonitor";
 
 export default function Game() {
+  useLocalStorageMonitor();
+
   return (
     <section className="h-full">
       <header className="border-b border-zinc-100 p-2">
@@ -59,6 +63,7 @@ function RenderGameByStatus() {
 /** Rendered when the state of the game is "waiting" */
 function GameWaiting({ gameId }: { gameId: string }) {
   const { startGame, leaveGame, changeUsername, lobby } = useLobbyManagement();
+  const { playerId } = usePlayer();
 
   const handleCopyInviteCode = async () => {
     const copyPromise = navigator.clipboard.writeText(gameId);
@@ -94,7 +99,7 @@ function GameWaiting({ gameId }: { gameId: string }) {
     }
   };
 
-  const currentUserId = localStorage.getItem("playerId");
+  const currentUserId = playerId;
   const isHost = currentUserId === lobby?.hostId;
 
   return (
@@ -184,6 +189,7 @@ function GameStarting() {
 function GameInProgress() {
   const { gameText, sendUpdatedPosition, players, gameStartTime, finishGame } =
     useGameInProgressManagement();
+  const { playerId } = usePlayer();
 
   const [userInput, setUserInput] = useState("");
   const userInputRef = useRef<HTMLTextAreaElement>(null);
@@ -191,8 +197,7 @@ function GameInProgress() {
   const elapsedTimerIntervalIdRef = useRef<number>(null);
   const elapsedTimeRef = useRef(0);
   const [isTextAreaFocused, setIsTextAreaFocused] = useState(true);
-
-  const currentPlayerId = localStorage.getItem("playerId");
+  const currentPlayerId = playerId;
 
   // calculate the accuracy
   const calculateAccuracy = useCallback((input: string, target: string) => {
@@ -253,7 +258,7 @@ function GameInProgress() {
 
         clearInterval(intervalId);
       }
-    }, 2000);
+    }, 1000);
 
     return () => clearInterval(intervalId);
   }, [
@@ -284,7 +289,6 @@ function GameInProgress() {
       if (elapsedTimerIntervalIdRef.current) {
         clearInterval(elapsedTimerIntervalIdRef.current);
         elapsedTimerIntervalIdRef.current = null;
-        console.log("stopped the elapsed time");
       }
     }
 
@@ -440,10 +444,12 @@ function GameCompleted() {
 
   const { result, restartGame, leaveGame } = useGameCompletedManagement();
 
+  const { playerId } = usePlayer();
+
   const [sortField, setSortField] = useState<SortField>("position");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  const currentUserId = localStorage.getItem("playerId");
+  const currentUserId = playerId;
   const isHost = currentUserId === result.hostId;
   const handleSort = (field: SortField) => {
     if (sortField === field) {
