@@ -30,7 +30,7 @@ jobs:
       with:
         context: ./frontend
         push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ secrets.DOCKERHUB_USERNAME }}/frontend:latest,${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ github.sha }}
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/typechase-frontend:latest,${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ github.sha }}
         cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/frontend:buildcache
         cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/frontend:buildcache,mode=max
       
@@ -39,6 +39,6 @@ jobs:
       with:
         context: ./backend
         push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ secrets.DOCKERHUB_USERNAME }}/backend:latest,${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ github.sha }}
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/typechase-backend:latest,${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ github.sha }}
         cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/backend:buildcache
         cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/backend:buildcache,mode=max
