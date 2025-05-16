@@ -31,8 +31,8 @@ jobs:
         context: ./frontend
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/typechase-frontend:latest,${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ github.sha }}
-        cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/frontend:buildcache
-        cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/frontend:buildcache,mode=max
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
       
     - name: Build and push backend image
       uses: docker/build-push-action@v4
@@ -40,5 +40,5 @@ jobs:
         context: ./backend
         push: ${{ github.event_name != 'pull_request' }}
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/typechase-backend:latest,${{ secrets.DOCKERHUB_USERNAME }}/backend:${{ github.sha }}
-        cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/backend:buildcache
-        cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/backend:buildcache,mode=max
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
