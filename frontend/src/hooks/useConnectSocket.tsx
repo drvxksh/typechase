@@ -102,19 +102,6 @@ export default function useConnectSocket(): [
       removeHealthCheckListeners();
     };
 
-    const handleRejoinGame = () => {
-      navigator("/");
-    };
-
-    const handleLeaveGame = () => {
-      newSocket.send(
-        JSON.stringify({
-          event: "leave_game",
-          payload: {},
-        }),
-      );
-    };
-
     newSocket.onmessage = (event: MessageEvent) => {
       let data: WebSocketResponse | null = null;
 
@@ -155,13 +142,7 @@ export default function useConnectSocket(): [
             // redirect the player if it was part in the middle of a game
             if (data.payload.existingGameId) {
               // TODO: make this functional
-              toast.info(
-                "We see you have an ongoing game. Would you like to rejoin?",
-                {
-                  action: <button onClick={handleRejoinGame}>Yes</button>,
-                  cancel: <button onClick={handleLeaveGame}>No</button>,
-                },
-              );
+              toast.info("Redirecting you to your old game");
               navigator(`/game/${data.payload.existingGameId}`);
             }
 

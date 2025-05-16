@@ -852,13 +852,14 @@ export class CommunicationService {
     const gameId = this.clientGameIds.get(client) as string;
 
     // fetch the game result
-    const players = await this.gameService.getGameResult(gameId);
+    const gameResult = await this.gameService.getGameResult(gameId);
 
-    if (players) {
+    if (gameResult) {
       this.send(client, {
         event: MessageEvent.GET_GAME_RESULT,
         payload: {
-          players,
+          hostId: gameResult.hostId,
+          players: gameResult.players,
         },
       });
     }

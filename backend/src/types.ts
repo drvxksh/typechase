@@ -76,6 +76,7 @@ export type NewPlayerInfo = {
 
 export interface GameResult {
   id: string; // same as the gameId
+  hostId: string; // the id of the host player
   players: {
     id: string;
     name: string;

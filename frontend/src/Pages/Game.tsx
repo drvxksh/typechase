@@ -41,7 +41,6 @@ function RenderGameByStatus() {
 
   // validate the gameId and fetch the status and count in case the game is starting
   const { gameStatus } = useGameStatus(gameId);
-  // const gameStatus = GameStatus.IN_PROGRESS;
 
   switch (gameStatus) {
     case GameStatus.WAITING:
@@ -78,35 +77,28 @@ function GameWaiting({ gameId }: { gameId: string }) {
     leaveGame();
   };
 
-  const playerNameInputRef = useRef<HTMLInputElement>(null);
+  const handleChangeUsername = (
+    event: React.FocusEvent<HTMLInputElement>,
+    orignalName: string,
+  ) => {
+    const newUsername = event.target.value.trim();
 
-  const handleChangeUsername = () => {
-    if (playerNameInputRef.current) {
-      console.log("new username is", playerNameInputRef.current.value);
-      changeUsername(playerNameInputRef.current.value);
+    if (!newUsername) {
+      event.target.value = orignalName;
+      toast.error("Username cannot be empty");
+      return;
+    }
+
+    if (newUsername !== orignalName) {
+      changeUsername(newUsername);
     }
   };
 
-  // const lobby: Lobby = {
-  //   hostId: "123",
-  //   players: [
-  //     {
-  //       playerId: "123",
-  //       playerName: "User 1",
-  //     },
-  //     {
-  //       playerId: "234",
-  //       playerName: "User 2",
-  //     },
-  //   ],
-  // };
-
   const currentUserId = localStorage.getItem("playerId");
-  // const currentUserId = "123";
   const isHost = currentUserId === lobby?.hostId;
 
   return (
-    <section className="mx-auto mt-[15vh] flex max-w-xl flex-col items-center justify-center gap-5">
+    <section className="mx-auto mt-[15vh] flex max-w-xl flex-col items-center justify-center gap-5 px-4">
       <header className="flex items-center gap-2">
         <Info className="size-6 text-blue-600" />
         <h1 className="font-inter font-bold text-blue-600 sm:text-2xl">
@@ -134,15 +126,17 @@ function GameWaiting({ gameId }: { gameId: string }) {
         <div className="flex flex-col space-y-1 divide-y divide-zinc-100 rounded-xl p-4 outline outline-zinc-100">
           {lobby &&
             lobby.players.map((item) => (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1" key={item.playerId}>
                 <User className="size-5" />
                 <input
-                  key={item.playerId}
                   defaultValue={item.playerName}
-                  className="font-poppins w-full rounded-md p-1 text-sm text-zinc-800 focus:outline-none"
+                  className={`font-poppins w-full rounded-md p-1 text-sm text-zinc-800 focus:outline-none ${currentUserId !== item.playerId ? "cursor-default" : ""}`}
                   readOnly={currentUserId !== item.playerId}
-                  ref={playerNameInputRef}
-                  onFocus={handleChangeUsername}
+                  onBlur={(e) =>
+                    currentUserId === item.playerId
+                      ? handleChangeUsername(e, item.playerName)
+                      : undefined
+                  }
                 />
                 {lobby.hostId === item.playerId && (
                   <span className="text-xs">(host)</span>
@@ -177,7 +171,11 @@ function GameStarting() {
   return (
     <section className="flex h-[25vh] items-center justify-center">
       <h1 className="font-heading text-3xl font-bold sm:text-4xl">
-        Starting in {count}
+        {count ? (
+          <span>Starting in {count}</span>
+        ) : (
+          <span>Getting things ready...</span>
+        )}
       </h1>
     </section>
   );
@@ -187,34 +185,12 @@ function GameInProgress() {
   const { gameText, sendUpdatedPosition, players, gameStartTime, finishGame } =
     useGameInProgressManagement();
 
-  // const gameStartTime = 123;
-  // const gameText = "Sample Text";
-  // const players = useMemo(
-  //   () => [
-  //     {
-  //       playerId: "player-123-abc",
-  //       playerName: "Alice",
-  //       position: 0,
-  //     },
-  //     {
-  //       playerId: "player-456-def",
-  //       playerName: "Bob",
-  //       position: 15,
-  //     },
-  //     {
-  //       playerId: "player-789-ghi",
-  //       playerName: "Charlie",
-  //       position: 42,
-  //     },
-  //   ],
-  //   [],
-  // );
-
   const [userInput, setUserInput] = useState("");
   const userInputRef = useRef<HTMLTextAreaElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const elapsedTimerIntervalIdRef = useRef<number>(null);
   const elapsedTimeRef = useRef(0);
+  const [isTextAreaFocused, setIsTextAreaFocused] = useState(true);
 
   const currentPlayerId = localStorage.getItem("playerId");
 
@@ -288,40 +264,6 @@ function GameInProgress() {
     sendUpdatedPosition,
   ]);
 
-  // periodically send in the updated position of the client
-  // useEffect(() => {
-  //   console.log("inside the useEffect");
-  //   if (!gameStartTime) return;
-
-  //   const intervalId = setInterval(() => {
-  //     console.log("inside the interval");
-  //     const currentPosition = userInput.length;
-
-  //     // send the updated position in all the situations.
-  //     sendUpdatedPosition(currentPosition);
-
-  //     // if the game is over, notify the backend
-  //     if (currentPosition >= gameText.length) {
-  //       const finalWpm = calculateWPM(currentPosition, elapsedTimeRef.current);
-  //       const finalAccuracy = calculateAccuracy(userInput, gameText);
-  //       finishGame(finalWpm, finalAccuracy, elapsedTimeRef.current);
-
-  //       clearInterval(intervalId);
-  //     }
-  //   }, 5000);
-
-  //   return () => clearInterval(intervalId);
-  // }, [
-  //   userInput,
-  //   gameText,
-  //   gameStartTime,
-  //   elapsedTimeRef,
-  //   calculateWPM,
-  //   calculateAccuracy,
-  //   finishGame,
-  //   sendUpdatedPosition,
-  // ]);
-
   // focus the textarea when this component loads/mounts
   useEffect(() => {
     if (textAreaRef.current) {
@@ -353,6 +295,19 @@ function GameInProgress() {
     }
   };
 
+  const handleFocus = () => {
+    setIsTextAreaFocused(true);
+  };
+
+  const handleBlur = () => {
+    setIsTextAreaFocused(false);
+  };
+
+  const handleOverlayClick = () => {
+    if (textAreaRef.current) {
+      textAreaRef.current.focus();
+    }
+  };
   // a custom-char renderer for distinguishing between other characters
   const renderText = useMemo(() => {
     return gameText.split("").map((char, index) => {
@@ -450,6 +405,8 @@ function GameInProgress() {
           }}
           value={userInput}
           onChange={handleInputChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           spellCheck={false}
           className="absolute top-0 left-0 h-full w-full resize-none p-4 opacity-0 outline-none"
         />
@@ -458,6 +415,21 @@ function GameInProgress() {
         <h3 className="mb-4 text-lg font-bold">Race in Action</h3>
         {renderProgressBars}
       </div>
+
+      {/* Blur overlay - only shown when textarea is not focused */}
+      {!isTextAreaFocused && (
+        <div
+          onClick={handleOverlayClick}
+          className="fixed inset-0 z-50 flex cursor-pointer items-center justify-center bg-gray-800/50 backdrop-blur-sm"
+        >
+          <div className="rounded-lg bg-white p-6 text-center shadow-lg">
+            <p className="text-xl font-bold">Click here to resume</p>
+            <p className="mt-2 text-gray-600">
+              You've lost focus from the typing area
+            </p>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -471,6 +443,8 @@ function GameCompleted() {
   const [sortField, setSortField] = useState<SortField>("position");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
+  const currentUserId = localStorage.getItem("playerId");
+  const isHost = currentUserId === result.hostId;
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -480,7 +454,6 @@ function GameCompleted() {
     }
   };
 
-  const currentUserId = localStorage.getItem("playerId");
   const currentUser = result.players.find(
     (player) => player.id === currentUserId,
   );
@@ -672,13 +645,15 @@ function GameCompleted() {
             <ArrowLeft className="h-4 w-4" />
             Leave Race
           </button>
-          <button
-            onClick={handleRestartGame}
-            className="flex items-center gap-2 rounded-md bg-blue-500 px-4 py-3 text-white"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Race Again
-          </button>
+          {isHost && (
+            <button
+              onClick={handleRestartGame}
+              className="flex items-center gap-2 rounded-md bg-blue-500 px-4 py-3 text-white"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Race Again
+            </button>
+          )}
         </div>
       </div>
     </section>

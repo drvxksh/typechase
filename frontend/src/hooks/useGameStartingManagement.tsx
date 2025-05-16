@@ -10,7 +10,7 @@ type WebSocketResponse = {
 
 export default function useGameStartingManagement() {
   const { socket } = useSocketMessaging();
-  const [count, setCount] = useState<number>(10);
+  const [count, setCount] = useState<number>();
 
   useEffect(() => {
     if (!socket) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSocketMessaging } from "./useSocketMessaging";
 
 type GameResult = {
+  hostId?: string;
   players: {
     id: string;
     name: string;
@@ -14,7 +15,10 @@ type GameResult = {
 
 type WebSocketResponse = {
   event: "get_game_result";
-  payload: GameResult;
+  payload: {
+    hostId: string;
+    players: GameResult["players"];
+  };
 };
 
 export default function useGameCompletedManagement() {
@@ -51,7 +55,10 @@ export default function useGameCompletedManagement() {
       if (data) {
         switch (data.event) {
           case "get_game_result": {
-            setResult(data.payload);
+            setResult({
+              hostId: data.payload.hostId,
+              players: data.payload.players
+            });
             break;
           }
         }

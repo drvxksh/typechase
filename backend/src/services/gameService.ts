@@ -239,7 +239,20 @@ export class GameService {
       return gameObj.hostId;
     }
 
-    this.logger.warn("Fetching the host id for an invalid game");
+    this.logger.warn("Fetching the hostId an invalid game");
+    return null;
+  }
+
+  /** Returns the full game object for a given gameId */
+  public async getGame(gameId: string) {
+    const validGameId = await this.validateGameId(gameId);
+
+    if (validGameId) {
+      const gameObj = await this.storageService.getGameObj(gameId);
+      return gameObj;
+    }
+
+    this.logger.warn("Fetching an invalid game");
     return null;
   }
 
@@ -383,8 +396,10 @@ export class GameService {
       gameResultObj = await this.storageService.getGameResultObj(gameId);
     } else {
       // create a new one
+      const gameObj = await this.storageService.getGameObj(gameId);
       gameResultObj = {
         id: gameId,
+        hostId: gameObj.hostId,
         players: [],
       };
     }
@@ -433,13 +448,13 @@ export class GameService {
 
     const gameObj = await this.storageService.getGameObj(gameId);
 
-    gameObj.status === GameStatus.COMPLETED;
+    gameObj.status = GameStatus.COMPLETED;
 
     await this.storageService.saveGameObj(gameObj);
   }
 
   /**
-   * Retrieves the final game results including player scores and statistics
+   * Returns the game result object, or null if the gameId is invalid
    * @throws if the gameId is invalid
    */
   public async getGameResult(gameId: string) {
@@ -448,7 +463,11 @@ export class GameService {
     if (validGameResultId) {
       const gameResultObj = await this.storageService.getGameResultObj(gameId);
 
-      return gameResultObj.players;
+      // Get the game object to include hostId
+      const gameObj = await this.storageService.getGameObj(gameId);
+      gameResultObj.hostId = gameObj.hostId;
+
+      return gameResultObj;
     }
 
     this.logger.warn("Fetching an invalid game result");
