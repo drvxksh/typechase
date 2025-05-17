@@ -20,6 +20,13 @@ type WebSocketResponse =
         playerId: string;
         position: number;
       };
+    }
+  | {
+      event: "player_left";
+      payload: {
+        updatedHostId: string;
+        playerId: string;
+      };
     };
 
 type Player = {
@@ -73,19 +80,26 @@ export default function useGameInProgressManagement() {
 
             break;
           }
-          case "player_update":
-            {
-              // update the players object
-              setPlayers((prevPlayers) =>
-                prevPlayers.map((player) =>
-                  player.playerId === data.payload.playerId
-                    ? { ...player, position: data.payload.position }
-                    : { ...player },
-                ),
-              );
-            }
+          case "player_update": {
+            // update the players object
+            setPlayers((prevPlayers) =>
+              prevPlayers.map((player) =>
+                player.playerId === data.payload.playerId
+                  ? { ...player, position: data.payload.position }
+                  : { ...player },
+              ),
+            );
 
             break;
+          }
+          case "player_left": {
+            setPlayers((prevPlayers) =>
+              prevPlayers.filter(
+                (player) => player.playerId !== data!.payload.playerId,
+              ),
+            );
+            break;
+          }
         }
       }
     };
