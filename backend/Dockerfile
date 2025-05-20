@@ -21,6 +21,8 @@ COPY --from=builder /app/dist ./dist
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV REDIS_HOST=0.0.0.0
+ENV REDIS_PORT=6379
 
 EXPOSE 3000
 
