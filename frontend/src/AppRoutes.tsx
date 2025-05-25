@@ -1,8 +1,8 @@
 import { Route, Routes } from "react-router";
 import { Toaster } from "sonner";
 import { WebSocketProvider } from "./context/WebSocketContextProvider";
-import Game from "./Pages/Game";
-import Landing from "./Pages/Landing";
+import Game from "./pages/Game";
+import Landing from "./pages/Landing";
 import { PlayerProvider } from "./context/PlayerContext";
 
 export default function AppRoutes() {
