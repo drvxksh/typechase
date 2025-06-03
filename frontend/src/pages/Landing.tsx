@@ -36,7 +36,7 @@ export default function Landing() {
 
   return (
     <section className="flex h-full flex-col">
-      <nav className="mx-2 mt-2 flex h-14 items-center justify-between rounded-full border border-zinc-100 bg-white px-4 py-2 sm:mx-4">
+      <nav className="mx-2 mt-2 flex h-14 items-center justify-between rounded-full border border-zinc-100 bg-white/80 px-4 py-2 sm:mx-4">
         <Logo />
         {isConnected && (
           <button
@@ -80,7 +80,7 @@ export default function Landing() {
         <section className="flex flex-col items-center gap-5">
           <header className="flex flex-col items-center justify-center sm:gap-2">
             <h1 className="font-heading blue-gradient-text bg-clip-text text-center text-[38px] leading-12 font-bold text-transparent sm:text-5xl sm:leading-14">
-              <span className="inline-block">Fast Fingers? Prove It!</span>
+              <span className="inline-block">Typing is No Longer Solo</span>
             </h1>
             <h2 className="font-description max-w-2xl text-center text-[13px] font-medium text-zinc-700 sm:text-lg">
               A real-time multiplayer typing game. Join other rooms or create
@@ -117,7 +117,7 @@ export default function Landing() {
             ))}
           {isConnected && (
             <div
-              className={`flex w-[18rem] ${joinBtnLoader || playBtnLoader ? "cursor-not-allowed" : "cursor-text"} items-center rounded-full bg-transparent px-4 py-2 outline-2 outline-zinc-200 transition-all duration-200 focus-within:outline-zinc-300 sm:w-[25rem]`}
+              className={`flex w-[18rem] ${joinBtnLoader || playBtnLoader ? "cursor-not-allowed" : "cursor-text"} items-center rounded-full bg-white/60 px-4 py-2 outline-2 outline-zinc-200 transition-all duration-200 focus-within:outline-blue-700/40 sm:w-[25rem]`}
               onClick={() => {
                 if (inviteCodeInputRef.current)
                   inviteCodeInputRef.current.focus();
