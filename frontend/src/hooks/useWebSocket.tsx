@@ -2,8 +2,8 @@ import { createContext, useContext } from "react";
 import { ConnectionStatus } from "../types";
 
 export const WebSocketContext = createContext<
-  [WebSocket | null, ConnectionStatus]
->([null, "connecting"]);
+  [WebSocket | null, ConnectionStatus, string | null]
+>([null, "connecting", null]);
 
 /** Returns the websocket instance and the status of the connection */
 export function useWebSocket() {

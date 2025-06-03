@@ -37,7 +37,8 @@ type ProviderProps = {
 export function WebSocketProvider({ children }: ProviderProps) {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
-  const healthCheckIntervalRef = useRef<number | null>(null);
+  const [existingGameId, setExistingGameId] = useState<string | null>(null);
+  const healthCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pendingHealthCheckRef = useRef<boolean>(false);
 
   const { playerId, setPlayerId, checkAndRestorePlayerId } = usePlayer();
@@ -139,10 +140,9 @@ export function WebSocketProvider({ children }: ProviderProps) {
             // start the health check after the successfull connection
             startHealthCheck(newSocket);
 
-            // redirect the player if it was part in the middle of a game
+            // set the gameId
             if (data.payload.existingGameId) {
-              toast.info("Redirecting you to your old game");
-              navigator(`/game/${data.payload.existingGameId}`);
+              setExistingGameId(data.payload.existingGameId);
             }
 
             break;
@@ -188,7 +188,7 @@ export function WebSocketProvider({ children }: ProviderProps) {
   }, []);
 
   return (
-    <WebSocketContext.Provider value={[socket, status]}>
+    <WebSocketContext.Provider value={[socket, status, existingGameId]}>
       {children}
     </WebSocketContext.Provider>
   );
