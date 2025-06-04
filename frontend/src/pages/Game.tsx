@@ -194,7 +194,7 @@ function GameInProgress() {
   const [userInput, setUserInput] = useState("");
   const userInputRef = useRef<HTMLTextAreaElement>(null);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
-  const elapsedTimerIntervalIdRef = useRef<number>(null);
+  const elapsedTimerIntervalIdRef = useRef<NodeJS.Timeout>(null);
   const elapsedTimeRef = useRef(0);
   const [isTextAreaFocused, setIsTextAreaFocused] = useState(true);
   const currentPlayerId = playerId;

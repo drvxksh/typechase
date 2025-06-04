@@ -74,10 +74,12 @@ export default function Landing() {
             You have an unfinished game. Would you like to rejoin it?
           </DialogDescription>
           <DialogFooter>
-            <Button variant={"destructive"} onClick={handleLeaveOldGame}>
+            <Button variant={"outline"} onClick={handleLeaveOldGame}>
               Leave Game
             </Button>
-            <Button onClick={handleJoinOldGame}>Join Game</Button>
+            <Button onClick={handleJoinOldGame} className="bg-blue-600">
+              Join Game
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
