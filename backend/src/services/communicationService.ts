@@ -381,7 +381,6 @@ export class CommunicationService {
       return;
     }
 
-    // delete the game id of the player
     const playerId = this.clientPlayerIds.get(client);
     const gameId = this.clientGameIds.get(client);
 
@@ -931,6 +930,9 @@ export class CommunicationService {
       gameId,
     );
 
+    // nullify the current game id of the player
+    await this.gameService.resetPlayerCurrentGameId(playerId);
+
     // notify the client that it can leave now
     this.send(client, {
       event: MessageEvent.LEAVE_GAME,
@@ -940,6 +942,7 @@ export class CommunicationService {
     // unsubscribe the client from the game
     await this.unsubscribeFromGame(client);
 
+    // delete the game association for this client.
     this.clientGameIds.delete(client);
 
     // update others if there is a new host, if there was no host, the game has no players, no point in broadcasting it

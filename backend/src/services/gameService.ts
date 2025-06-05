@@ -60,6 +60,21 @@ export class GameService {
     return null;
   }
 
+  /** Nullifies the currentGameId of the given player */
+  public async resetPlayerCurrentGameId(playerId: string) {
+    // nullify the gameId from the player object
+    const validPlayer = await this.validatePlayerId(playerId);
+
+    if (!validPlayer) {
+      this.logger.warn("Removing an invalid player from some game");
+      return;
+    }
+
+    const playerObj = await this.storageService.getPlayerObj(playerId);
+    playerObj.currentGameId = null;
+    await this.storageService.savePlayerObj(playerObj);
+  }
+
   /** Validates whether the given playerId exists or not */
   public async validatePlayerId(playerId: string) {
     return this.storageService.validatePlayerId(playerId);

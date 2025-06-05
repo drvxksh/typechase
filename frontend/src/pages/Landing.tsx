@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useWebSocket } from "../hooks/useWebSocket";
 import backgroundImage from "/hero_background.jpg?url";
 import { DatabaseZap, Info } from "lucide-react";
@@ -22,6 +22,10 @@ export default function Landing() {
   const inviteCodeInputRef = useRef<HTMLInputElement | null>(null);
 
   const { createGame, joinGame } = useGamePortal();
+
+  useEffect(() => {
+    if (existingGameId) setShowDialog(true);
+  }, [existingGameId]);
 
   const [playBtnLoader, setPlayBtnLoader] = useState<boolean>(false);
   const [joinBtnLoader, setJoinBtnLoader] = useState<boolean>(false);
