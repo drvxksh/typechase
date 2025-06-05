@@ -3,7 +3,6 @@ import { WebSocketContext } from "../hooks/useWebSocket";
 import { ConnectionStatus } from "../types";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { usePlayer } from "./PlayerContext";
 import { toast } from "sonner";
 
 type WebSocketResponse =
@@ -40,8 +39,6 @@ export function WebSocketProvider({ children }: ProviderProps) {
   const [existingGameId, setExistingGameId] = useState<string | null>(null);
   const healthCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const pendingHealthCheckRef = useRef<boolean>(false);
-
-  const { playerId, setPlayerId, checkAndRestorePlayerId } = usePlayer();
 
   const navigator = useNavigate();
 
@@ -82,11 +79,8 @@ export function WebSocketProvider({ children }: ProviderProps) {
     };
 
     newSocket.onopen = () => {
-      // First check if playerId in localStorage was deleted and restore it if needed
-      checkAndRestorePlayerId();
-
       // fetch the existing playerId
-      const existingPlayerId = playerId;
+      const existingPlayerId = localStorage.getItem("playerId");
 
       // connect the backend
       const payload = {
@@ -130,7 +124,11 @@ export function WebSocketProvider({ children }: ProviderProps) {
           case "connect": {
             // save the new playerId if it differs from the existing one
             const newPlayerId = data.payload.playerId;
-            setPlayerId(newPlayerId);
+            const existingPlayerId = localStorage.getItem("playerId");
+
+            if (newPlayerId !== existingPlayerId) {
+              localStorage.setItem("playerId", newPlayerId);
+            }
 
             // update the state variables
             connectionStatus = "connected";
