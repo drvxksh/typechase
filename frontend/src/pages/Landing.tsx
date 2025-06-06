@@ -53,12 +53,11 @@ export default function Landing() {
   };
 
   const handleJoinOldGame = () => {
-    navigator(`/game/${existingGameId}`);
-    setShowDialog(false);
+    sendMessage("rejoin_game");
   };
 
   const handleLeaveOldGame = () => {
-    sendMessage("leave_game");
+    sendMessage("cancel_rejoin");
     setShowDialog(false);
   };
 

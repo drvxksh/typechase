@@ -90,7 +90,22 @@ export class GameService {
     return this.storageService.validateGameResultId(gameResultId);
   }
 
-  /** Returns the gameId and gameStatus for the game the give player is a part of. Returns null values otherwise */
+  /** Returns the gameId for the game that player is a part of. Returns null otherwise */
+  public async getGameId(playerId: string) {
+    const validPlayer = await this.storageService.validatePlayerId(playerId);
+
+    if (validPlayer) {
+      const playerObj = await this.storageService.getPlayerObj(playerId);
+
+      return playerObj.currentGameId;
+    }
+
+    this.logger.warn("Fetching game id for an invalid game");
+
+    return null;
+  }
+
+  /** Returns the gameInfo consisting of the gameId and the game status for the game that the player was a part of. Returns null otherwise */
   public async getGameInfo(playerId: string) {
     const gameInfo: GameInfo = {
       gameId: null,
@@ -103,10 +118,7 @@ export class GameService {
       const playerObj = await this.storageService.getPlayerObj(playerId);
       const gameId = playerObj.currentGameId;
 
-      if (!gameId) {
-        // the player wasn't a part of any game.
-        return gameInfo;
-      }
+      if (!gameId) return gameInfo;
 
       const validGameId = await this.storageService.validateGameId(gameId);
 
@@ -115,19 +127,19 @@ export class GameService {
         playerObj.currentGameId = null;
 
         await this.storageService.savePlayerObj(playerObj);
-
         return gameInfo;
       } else {
         const gameObj = await this.storageService.getGameObj(gameId);
 
-        gameInfo.gameId = gameId;
+        gameInfo.gameId = gameObj.id;
         gameInfo.gameStatus = gameObj.status;
 
         return gameInfo;
       }
     }
 
-    this.logger.warn("Fetching game info for an invalid player");
+    this.logger.warn("Fetching gameInfo for an invalid player");
+
     return gameInfo;
   }
 

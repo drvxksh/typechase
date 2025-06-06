@@ -218,6 +218,12 @@ export class CommunicationService {
       case MessageEvent.LEAVE_GAME:
         this.handleLeaveGame(client);
         break;
+      case MessageEvent.REJOIN_GAME:
+        this.handleRejoinGame(client);
+        break;
+      case MessageEvent.CANCEL_REJOIN:
+        this.handleCancelRejoin(client);
+        break;
       default:
         this.sendError(client, `Unsupported message event: ${event}`);
         break;
@@ -256,13 +262,14 @@ export class CommunicationService {
       return;
     }
 
-    // fetch the gameId and state of the Game
-    const gameInfo = await this.gameService.getGameInfo(playerId);
+    // save the playerId in the local map.
+    this.clientPlayerIds.set(client, playerId);
 
-    if (!gameInfo.gameId) {
+    // fetch the gameId of the game that the player was a part of.
+    const gameId = await this.gameService.getGameId(playerId);
+
+    if (!gameId) {
       // the player wasn't a part of any game
-      this.clientPlayerIds.set(client, playerId);
-
       this.send(client, {
         event: MessageEvent.CONNECT,
         payload: {
@@ -271,51 +278,15 @@ export class CommunicationService {
         },
       });
     } else {
-      switch (gameInfo.gameStatus) {
-        case GameStatus.WAITING: {
-          this.clientPlayerIds.set(client, playerId);
-          this.clientGameIds.set(client, gameInfo.gameId);
+      // the player was part of an ongoing game, offer to connect
 
-          // add the player back to the game
-          await this.gameService.rejoinPlayer(playerId, gameInfo.gameId);
-
-          // resub the client
-          await this.subscribeToGame(client);
-
-          // notify others that this player has joined again
-          const newPlayerInfo = (await this.gameService.getPlayerInfo(
-            playerId,
-          )) as NewPlayerInfo; // if you're here, the player validity has already been checked so we can fetch without checking
-
-          await this.pubClient.publish(
-            `game:${gameInfo.gameId}`,
-            JSON.stringify({
-              event: BroadcastEvent.NEW_PLAYER_JOINED,
-              payload: {
-                newPlayerInfo,
-              },
-            }),
-          );
-
-          // return the connect request.
-          this.send(client, {
-            event: MessageEvent.CONNECT,
-            payload: {
-              playerId: playerId,
-              existingGameId: gameInfo.gameId,
-            },
-          });
-
-          break;
-        }
-        default: {
-          // disconnected in the middle of the game, back to the landing page
-          this.send(client, {
-            event: MessageEvent.DISCONNECT,
-            payload: {},
-          });
-        }
-      }
+      this.send(client, {
+        event: MessageEvent.CONNECT,
+        payload: {
+          playerId: playerId,
+          existingGameId: gameId,
+        },
+      });
     }
   }
 
@@ -331,6 +302,59 @@ export class CommunicationService {
         existingGameId: null,
       },
     });
+  }
+
+  private async handleRejoinGame(client: WebSocket) {
+    const playerId = this.clientPlayerIds.get(client);
+
+    if (!playerId) {
+      this.logger.warn("Trying to retrieve the playerId of an unknown client");
+      return;
+    }
+
+    const gameInfo = await this.gameService.getGameInfo(playerId);
+
+    if (gameInfo.gameStatus === GameStatus.WAITING) {
+      // save the gameId in the local map
+      this.clientGameIds.set(client, gameInfo.gameId as string);
+
+      // add the player to the game object
+      await this.gameService.rejoinPlayer(playerId, gameInfo.gameId as string);
+
+      this.send(client, {
+        event: MessageEvent.REJOIN_GAME,
+        payload: {
+          gameId: gameInfo.gameId,
+        },
+      });
+
+      // resub the client
+      await this.subscribeToGame(client);
+
+      // notify others that this player has rejoined
+      const newPlayerInfo = (await this.gameService.getPlayerInfo(
+        playerId,
+      )) as NewPlayerInfo; // the player validity is already checked while retrieving the gameInfo
+
+      await this.pubClient.publish(
+        `game:${gameInfo.gameId}`,
+        JSON.stringify({
+          event: BroadcastEvent.NEW_PLAYER_JOINED,
+          payload: {
+            newPlayerInfo,
+          },
+        }),
+      );
+    } else {
+      this.send(client, {
+        event: MessageEvent.DISCONNECT,
+        payload: {},
+      });
+    }
+
+    // fetch the game status of the game, if its still waiting, rejoin, add user to the game and broadcast, update the local maps.
+    // otherwise return an error message
+    // fetch the game status only.
   }
 
   /** Verifies if a client has an associated gameId and playerId. Returns true if valid*/
@@ -911,6 +935,23 @@ export class CommunicationService {
 
       this.clientSubscriptions.delete(`game:${gameId}`);
     }
+  }
+
+  private async handleCancelRejoin(client: WebSocket) {
+    const playerId = this.clientPlayerIds.get(client);
+
+    if (!playerId) {
+      this.logger.warn("Cancelling the rejoin of an unknown player");
+      return;
+    }
+
+    // nullify the playerId of the client.
+    await this.gameService.resetPlayerCurrentGameId(playerId);
+
+    this.send(client, {
+      event: MessageEvent.CANCEL_REJOIN,
+      payload: {},
+    });
   }
 
   private async handleLeaveGame(client: WebSocket) {

@@ -18,6 +18,8 @@ export enum MessageEvent {
   "RESTART_GAME" = "restart_game",
   "LEAVE_GAME" = "leave_game",
   "DISCONNECT" = "disconnected",
+  "REJOIN_GAME" = "rejoin_game",
+  "CANCEL_REJOIN" = "cancel_rejoin",
 }
 
 export interface WebSocketMessage {
