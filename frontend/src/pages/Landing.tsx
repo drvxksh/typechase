@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router";
 import { useSocketMessaging } from "@/hooks/useSocketMessaging";
 
 export default function Landing() {
@@ -30,8 +29,6 @@ export default function Landing() {
   const [playBtnLoader, setPlayBtnLoader] = useState<boolean>(false);
   const [joinBtnLoader, setJoinBtnLoader] = useState<boolean>(false);
   const [showDialog, setShowDialog] = useState(false);
-
-  const navigator = useNavigate();
 
   const handleCreateGame = () => {
     if (!joinBtnLoader && !joinBtnLoader) {
