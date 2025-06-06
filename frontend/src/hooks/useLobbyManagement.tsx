@@ -22,7 +22,7 @@ type WebSocketResponse =
   | {
       event: "username_changed";
       payload: {
-        updatedUser: {
+        updatedPlayer: {
           playerId: string;
           playerName: string;
         };
@@ -99,16 +99,18 @@ export default function useLobbyManagement() {
             setLobby((prevLobby) => {
               if (!prevLobby) return prevLobby;
 
+              const newPlayers = prevLobby.players.map((player) =>
+                player.playerId === data.payload.updatedPlayer.playerId
+                  ? {
+                      ...player,
+                      playerName: data.payload.updatedPlayer.playerName,
+                    }
+                  : player,
+              );
+
               return {
-                ...prevLobby,
-                players: prevLobby.players.map((player) =>
-                  player.playerId === data.payload.updatedUser.playerId
-                    ? {
-                        ...player,
-                        playerName: data.payload.updatedUser.playerName,
-                      }
-                    : player,
-                ),
+                hostId: prevLobby.hostId,
+                players: newPlayers,
               };
             });
 
@@ -157,9 +159,20 @@ export default function useLobbyManagement() {
 
   const changeUsername = (newUsername: string) => {
     sendMessage("change_username", {
-      payload: {
-        newUsername,
-      },
+      newUsername,
+    });
+
+    // Optimistically update the lobby state
+    setLobby((prevLobby) => {
+      if (!prevLobby) return prevLobby;
+
+      const newPlayers = prevLobby.players.map((player) =>
+        player.playerId === localStorage.getItem("playerId")
+          ? { ...player, playerName: newUsername }
+          : player,
+      );
+
+      return { ...prevLobby, players: newPlayers };
     });
   };
 

@@ -609,6 +609,7 @@ export class CommunicationService {
 
     const playerId = this.clientPlayerIds.get(client) as string;
     const gameId = this.clientGameIds.get(client) as string;
+
     const { newUsername } = payload;
 
     if (!newUsername) {

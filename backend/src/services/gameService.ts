@@ -343,6 +343,7 @@ export class GameService {
       // if the game is starting, add the game text.
       if (newState === GameStatus.STARTING) {
         const gameText = generate({ exactly: 50, join: " " });
+        // const gameText = "race";
         gameObj.gameText = gameText.trim();
       }
 

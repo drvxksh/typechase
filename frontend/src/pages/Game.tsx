@@ -129,6 +129,7 @@ function GameWaiting({ gameId }: { gameId: string }) {
               <div className="flex items-center gap-1" key={item.playerId}>
                 <User className="size-5" />
                 <input
+                  key={`player-${item.playerId}-${item.playerName}`}
                   defaultValue={item.playerName}
                   className={`font-poppins w-full rounded-md p-1 text-sm text-zinc-800 focus:outline-none ${currentUserId !== item.playerId ? "cursor-default" : ""}`}
                   readOnly={currentUserId !== item.playerId}
